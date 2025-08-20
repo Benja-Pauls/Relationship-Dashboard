@@ -74,9 +74,9 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
   }).length;
 
   const getEncouragement = () => {
-    if (completedGoals === 2) return "💕 Perfect love week! 🌟";
-    if (completedGoals === 1) return "💖 Keep loving! 🦋";
-    return "💫 Love is growing! 💕";
+    if (completedGoals === 2) return "Perfect love week!";
+    if (completedGoals === 1) return "Keep loving!";
+    return "Love is growing!";
   };
 
   return (
@@ -91,22 +91,21 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
               boxShadow: `0 0 15px ${DARK_THEME.neon.pink}80`
             }}
           >
-            🏆
+            ✓
           </div>
         </div>
       )}
 
       {/* Simplified Header */}
-      <div className="text-center mb-6">
-        <h3 className="font-bold text-white text-lg mb-2">Love & Connection</h3>
-        <p className="text-sm text-gray-400 flex items-center justify-center space-x-1">
-          <span>Weekly Progress</span>
-          <span>💕</span>
+      <div className="text-center mb-4">
+        <h3 className="font-bold text-white text-lg mb-1">Love & Connection</h3>
+        <p className="text-sm text-gray-400">
+          Weekly Progress
         </p>
       </div>
 
       {/* Cute Progress Ring */}
-      <div className="relative mb-6 flex justify-center flex-1">
+      <div className="relative mb-4 flex justify-center flex-1">
         <svg 
           className="transform -rotate-90 transition-all duration-500"
           width={200} 

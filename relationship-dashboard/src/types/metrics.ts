@@ -11,10 +11,12 @@ export interface MetricEntry {
 }
 
 export interface PartnerFinances {
-  partner1Balance: number; // Orange partner
-  partner2Balance: number; // Purple partner
-  partner1Change: number;  // Weekly change
-  partner2Change: number;  // Weekly change
+  sydneyBalance: number;
+  benBalance: number;
+  investmentsBalance: number;
+  sydneyWeeklyChange: number; // Individual spending change
+  benWeeklyChange: number;    // Individual spending change
+  investmentsWeeklyChange: number; // Investment gains/losses
 }
 
 export interface Note {
@@ -97,14 +99,13 @@ export const METRIC_CONFIGS: MetricConfig[] = [
   },
   {
     key: 'trashFullHours',
-    friendlyLabel: 'Trash Patrol',
+    friendlyLabel: 'Trash Takeouts',
     muiIcon: 'Delete',
     neonColor: '#00e676', // Neon green
     gradientFrom: '#00e676',
     gradientTo: '#00c853',
-    unit: 'h',
-    goalType: 'lower',
-    weeklyGoal: 12, // Target to stay under 12 hours total per week
+    goalType: 'higher',
+    weeklyGoal: 3, // Target 3 times taking out trash per week
     resetDay: 'sunday'
   },
   {
@@ -139,25 +140,34 @@ export interface PlaidAccount {
   owner?: 'partner1' | 'partner2'; // For splitting accounts
 }
 
-// Partner color configuration - Updated for dark theme
-export const PARTNER_COLORS = {
-  partner1: {
-    name: 'Ben', // You can customize this
-    primary: '#ff9100', // Bright orange for dark theme
+// Finance account color configuration - Updated for 3-way split
+export const FINANCE_COLORS = {
+  sydney: {
+    name: 'Sydney',
+    primary: '#e040fb', // Purple
+    neon: '#e040fb',
+    gradient: 'from-purple-400 to-purple-500',
+    light: 'purple-900/20',
+    text: 'purple-300',
+    glow: '0 0 20px rgba(224, 64, 251, 0.5)'
+  },
+  ben: {
+    name: 'Ben',
+    primary: '#ff9100', // Orange
     neon: '#ff9100',
     gradient: 'from-orange-400 to-orange-500',
     light: 'orange-900/20',
     text: 'orange-300',
     glow: '0 0 20px rgba(255, 145, 0, 0.5)'
   },
-  partner2: {
-    name: 'My Love', // You can customize this  
-    primary: '#e040fb', // Bright purple for dark theme
-    neon: '#e040fb',
-    gradient: 'from-purple-400 to-purple-500',
-    light: 'purple-900/20',
-    text: 'purple-300',
-    glow: '0 0 20px rgba(224, 64, 251, 0.5)'
+  investments: {
+    name: 'Investments',
+    primary: '#00e676', // Green
+    neon: '#00e676',
+    gradient: 'from-green-400 to-green-500',
+    light: 'green-900/20',
+    text: 'green-300',
+    glow: '0 0 20px rgba(0, 230, 118, 0.5)'
   }
 };
 

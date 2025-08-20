@@ -54,7 +54,7 @@ const ChoresComposite: React.FC<ChoresCompositeProps> = ({
       onIncrement: onTrashIncrement,
       onDecrement: onTrashDecrement,
       icon: Delete,
-      label: 'Trash Patrol'
+      label: 'Trash Takeouts'
     },
     {
       config: kittyConfig,
@@ -92,10 +92,10 @@ const ChoresComposite: React.FC<ChoresCompositeProps> = ({
   }).length;
 
   const getEncouragement = () => {
-    if (completedChores === 3) return "🏆 Home sweet home! 🌟";
-    if (completedChores === 2) return "💪 Almost perfect! 🦋";
-    if (completedChores === 1) return "⚡ Great teamwork! 💕";
-    return "🎯 Let's make it sparkle! ✨";
+    if (completedChores === 3) return "Home sweet home!";
+    if (completedChores === 2) return "Almost perfect!";
+    if (completedChores === 1) return "Great teamwork!";
+    return "Let's make it sparkle!";
   };
 
   return (
@@ -110,22 +110,21 @@ const ChoresComposite: React.FC<ChoresCompositeProps> = ({
               boxShadow: `0 0 15px ${DARK_THEME.neon.green}80`
             }}
           >
-            🏆
+            ✓
           </div>
         </div>
       )}
 
             {/* Simplified Header */}
-      <div className="text-center mb-6">
-        <h3 className="font-bold text-white text-lg mb-2">Household Chores</h3>
-        <p className="text-sm text-gray-400 flex items-center justify-center space-x-1">
-          <span>Weekly Progress</span>
-          <span>🏠</span>
+      <div className="text-center mb-4">
+        <h3 className="font-bold text-white text-lg mb-1">Household Chores</h3>
+        <p className="text-sm text-gray-400">
+          Weekly Progress
         </p>
       </div>
 
       {/* Cute Progress Ring */}
-      <div className="relative mb-6 flex justify-center flex-1">
+      <div className="relative mb-4 flex justify-center flex-1">
         <svg 
           className="transform -rotate-90 transition-all duration-500"
           width={200} 

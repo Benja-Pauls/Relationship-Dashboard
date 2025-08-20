@@ -19,16 +19,23 @@ const Dashboard: React.FC = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
       const entry = DataService.getTodaysEntry();
       const weekly = DataService.getCurrentWeekMetrics();
-      const finances = DataService.getPartnerFinances();
       
       setTodaysEntry(entry);
       setWeeklyMetrics(weekly);
-      setPartnerFinances(finances);
+      
+      // Try to load finances, but don't fail if it errors
+      try {
+        const finances = await DataService.getPartnerFinances();
+        setPartnerFinances(finances);
+      } catch (financeError) {
+        console.error('Finance data failed to load:', financeError);
+        setPartnerFinances(null); // This will show error state in DualFinanceWheel
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -103,11 +110,11 @@ const Dashboard: React.FC = () => {
       ? (weeklyValue / goal) * 100 
       : goal > 0 ? Math.max(100 - ((weeklyValue / goal) * 100), 0) : 100;
 
-    if (progress >= 100) return "🎉 You're amazing! ✨";
-    if (progress >= 75) return "🌟 So close, love! 💕";
-    if (progress >= 50) return "💪 Halfway there! 🦋";
-    if (progress >= 25) return "🌸 Beautiful start! 💖";
-    return "💫 You've got this! 🎀";
+    if (progress >= 100) return "You're amazing!";
+    if (progress >= 75) return "So close!";
+    if (progress >= 50) return "Halfway there!";
+    if (progress >= 25) return "Beautiful start!";
+    return "You've got this!";
   };
 
   if (isLoading) {
@@ -122,7 +129,7 @@ const Dashboard: React.FC = () => {
             }}
           />
           <p className="text-gray-300 text-lg">Loading your love dashboard...</p>
-          <p className="text-gray-500 text-sm mt-2">✨ Preparing something magical ✨</p>
+          <p className="text-gray-500 text-sm mt-2">Preparing something magical</p>
         </div>
       </div>
     );
@@ -132,7 +139,9 @@ const Dashboard: React.FC = () => {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center dark-card p-8 rounded-3xl">
-          <div className="text-6xl mb-4">😢</div>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${DARK_THEME.neon.pink}, ${DARK_THEME.neon.purple})` }}>
+            <span className="text-white text-2xl font-bold">!</span>
+          </div>
           <p className="text-red-400 mb-4">Oops! Something went wrong</p>
           <p className="text-gray-400 mb-6">We couldn't load your relationship data</p>
           <button 
@@ -143,7 +152,7 @@ const Dashboard: React.FC = () => {
               boxShadow: `0 8px 25px ${DARK_THEME.neon.pink}40`
             }}
           >
-            💖 Try Again
+            Try Again
           </button>
         </div>
       </div>
@@ -156,88 +165,82 @@ const Dashboard: React.FC = () => {
   const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
   return (
-    <div className="h-screen text-white overflow-hidden relative" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+    <div className="h-full text-white flex flex-col relative" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
 
       
-      {/* Cute Header */}
-      <div className="px-8 py-6 border-b border-white/10 backdrop-blur-sm" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+      {/* Clean, Purposeful Header */}
+      <div className="px-6 py-3 border-b border-white/10 backdrop-blur-sm" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
         <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-              <div 
-                className="w-12 h-12 rounded-2xl flex items-center justify-center animate-pulse"
-                style={{
-                  background: `linear-gradient(135deg, #ff6b9d, #4ecdc4)`,
-                  boxShadow: `0 0 30px rgba(255, 107, 157, 0.8), 0 0 60px rgba(78, 205, 196, 0.4)`
-                }}
-              >
-                <Favorite sx={{ fontSize: 28, color: 'white' }} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-300 via-purple-300 to-cyan-300 bg-clip-text text-transparent">
-                  💕 Love & Life Dashboard 🌟
-                </h1>
-                <p className="text-gray-300 flex items-center space-x-2">
-                  <span>{currentDate}</span>
-                  <AutoAwesome sx={{ fontSize: 16, color: '#ffd700' }} />
-                  <span className="text-xs">Crafted with love & sparkles ✨</span>
-                </p>
-              </div>
+          <div className="flex items-center space-x-4">
+            <div 
+              className="w-10 h-10 rounded-2xl flex items-center justify-center"
+              style={{
+                background: `linear-gradient(135deg, ${DARK_THEME.neon.pink}, ${DARK_THEME.neon.purple})`,
+                boxShadow: `0 0 20px ${DARK_THEME.neon.pink}40`
+              }}
+            >
+              <Favorite sx={{ fontSize: 20, color: 'white' }} />
             </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                Love & Life Dashboard
+              </h1>
+              <p className="text-sm text-gray-400">
+                {currentDate} • Week {Math.ceil((new Date().getDate()) / 7)} Progress
+              </p>
+            </div>
+          </div>
           
           <div className="flex items-center space-x-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold">
+            <div className="text-right">
+              <div className="text-lg font-bold">
                 <span style={{ color: DARK_THEME.neon.green }}>{completedGoals}</span>
                 <span className="text-gray-500">/{METRIC_CONFIGS.length}</span>
               </div>
               <div className="text-xs text-gray-400">Goals Complete</div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Speed sx={{ fontSize: 18, color: DARK_THEME.neon.green }} />
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-sm text-gray-300">All Systems Go</span>
-            </div>
           </div>
         </div>
         
-        {/* Cute Progress Bar */}
-        <div className="mt-6">
+        {/* Improved Progress Bar */}
+        <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400 flex items-center space-x-2">
-              <span>Weekly Progress</span>
-              <span className="text-xs">🎯</span>
-            </span>
+            <span className="text-sm text-gray-300">Weekly Progress</span>
             <span className="text-sm font-bold" style={{ color: DARK_THEME.neon.cyan }}>
               {totalProgress}%
             </span>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden backdrop-blur-sm">
+          <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
             <div 
-              className="h-3 rounded-full transition-all duration-1000 ease-out relative"
+              className="h-2 rounded-full transition-all duration-1000 ease-out"
               style={{ 
                 width: `${totalProgress}%`,
-                background: `linear-gradient(90deg, #ff6b9d 0%, #4ecdc4 30%, #45b7d1 60%, #96ceb4 100%)`,
-                boxShadow: `0 0 20px rgba(78, 205, 196, 0.6), 0 0 40px rgba(78, 205, 196, 0.3)`
+                background: totalProgress >= 80 
+                  ? `linear-gradient(90deg, ${DARK_THEME.neon.green}, ${DARK_THEME.neon.cyan})`
+                  : totalProgress >= 50
+                  ? `linear-gradient(90deg, ${DARK_THEME.neon.cyan}, ${DARK_THEME.neon.purple})`
+                  : `linear-gradient(90deg, ${DARK_THEME.neon.pink}, ${DARK_THEME.neon.purple})`,
+                boxShadow: totalProgress >= 80 
+                  ? `0 0 15px ${DARK_THEME.neon.green}60`
+                  : `0 0 15px ${DARK_THEME.neon.cyan}40`
               }}
-            >
-              {totalProgress >= 100 && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 animate-pulse" style={{ animationDuration: '3s' }} />
+            />
+          </div>
+          {daysUntilReset > 0 && (
+            <div className="text-right mt-1">
+              <span className="text-xs text-gray-500">
+                Resets in {daysUntilReset} day{daysUntilReset !== 1 ? 's' : ''}
+              </span>
             </div>
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-400">
-            <span>🌸 You're doing amazing! 💕</span>
-            <span>{daysUntilReset}d to reset 🗓️✨</span>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Main Content - Better Balanced 3 Sections */}
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+      <div className="flex-1 p-4 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full max-h-full">
           {/* Love Section - More prominent */}
-          <div className="lg:col-span-4 flex flex-col">
+          <div className="lg:col-span-4 flex flex-col min-h-0">
             <LoveComposite
               loveSparksValue={getWeeklyValue(METRIC_CONFIGS[0])}
               loveSparksGoal={METRIC_CONFIGS[0].weeklyGoal}
@@ -251,7 +254,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Chores Section - Balanced middle */}
-          <div className="lg:col-span-4 flex flex-col">
+          <div className="lg:col-span-4 flex flex-col min-h-0">
             <ChoresComposite
               dishesValue={getWeeklyValue(METRIC_CONFIGS[2])}
               dishesGoal={METRIC_CONFIGS[2].weeklyGoal}
@@ -268,16 +271,18 @@ const Dashboard: React.FC = () => {
             />
           </div>
           
-          {/* Finance Section - More spacious */}
-          <div className="lg:col-span-4 flex flex-col">
-            {partnerFinances && (
-              <DualFinanceWheel
-                partner1Balance={partnerFinances.partner1Balance}
-                partner2Balance={partnerFinances.partner2Balance}
-                partner1Change={partnerFinances.partner1Change}
-                partner2Change={partnerFinances.partner2Change}
-              />
-            )}
+          {/* Finance Section - Three-way split */}
+          <div className="lg:col-span-4 flex flex-col min-h-0">
+            <DualFinanceWheel
+              sydneyBalance={partnerFinances?.sydneyBalance || 0}
+              benBalance={partnerFinances?.benBalance || 0}
+              investmentsBalance={partnerFinances?.investmentsBalance || 0}
+              sydneyWeeklyChange={partnerFinances?.sydneyWeeklyChange || 0}
+              benWeeklyChange={partnerFinances?.benWeeklyChange || 0}
+              investmentsWeeklyChange={partnerFinances?.investmentsWeeklyChange || 0}
+              isLoading={!partnerFinances}
+              error={partnerFinances ? undefined : "Unable to load financial data"}
+            />
           </div>
         </div>
       </div>

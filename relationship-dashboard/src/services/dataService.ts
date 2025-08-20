@@ -210,22 +210,19 @@ export class DataService {
     };
   }
 
-  // Get partner finance data
-  static getPartnerFinances(): PartnerFinances {
-    // In a real app, this would come from Plaid with account categorization
-    // For now, mock data with your orange/purple color preferences
-    const totalBalance = 15420.50;
-    const partner1Balance = totalBalance * 0.6; // You (orange) have 60%
-    const partner2Balance = totalBalance * 0.4; // Girlfriend (purple) has 40%
-    
-    const weeklyMetrics = this.getCurrentWeekMetrics();
-    
-    return {
-      partner1Balance: Math.round(partner1Balance * 100) / 100,
-      partner2Balance: Math.round(partner2Balance * 100) / 100,
-      partner1Change: weeklyMetrics.partner1FinanceChange,
-      partner2Change: weeklyMetrics.partner2FinanceChange
-    };
+  // Get three-way finance data (Sydney, Ben, Investments) from Plaid
+  static async getPartnerFinances(): Promise<PartnerFinances> {
+    try {
+      const { PlaidService } = await import('./plaidService');
+      const result = await PlaidService.getFinanceData();
+      console.log('DataService: Got finance data from PlaidService:', result);
+      return result;
+          } catch (error) {
+        console.error('ERROR: Failed to fetch real finance data:', error);
+        console.error('Full error details:', error);
+        // Show error state instead of fake data
+        throw new Error(`Finance data unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      }
   }
 
   // Initialize with sample data if no data exists
@@ -246,7 +243,7 @@ export class DataService {
           sexCount: Math.floor(Math.random() * 3),
           qualityTimeHours: Math.floor(Math.random() * 5) + 1,
           dishesDone: Math.random() > 0.3 ? 1 : 0,
-          trashFullHours: Math.floor(Math.random() * 12),
+          trashFullHours: Math.floor(Math.random() * 2), // 0-1 times taking out trash per day
           kittyDuties: Math.random() > 0.2 ? 1 : 0,
           notes: []
         });
@@ -261,7 +258,7 @@ export class DataService {
       const sampleNotes: Note[] = [
         {
           id: '1',
-          content: 'Great job on keeping up with the dishes this week! 💪',
+          content: 'Great job on keeping up with the dishes this week!',
           author: 'partner1',
           timestamp: new Date().toISOString(),
           isRead: false,
@@ -269,7 +266,7 @@ export class DataService {
         },
         {
           id: '2',
-          content: 'Remember to take out the trash before it gets too full 🗑️',
+          content: 'Thanks for taking out the trash regularly this week!',
           author: 'partner2',
           timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
           isRead: true,

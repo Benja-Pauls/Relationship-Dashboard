@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connect Your Bank - Relationship Dashboard</title>
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            margin: 0;
+            padding: 40px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            max-width: 600px;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #00d4ff;
+        }
+        .button {
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 20px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: scale(1.05);
+        }
+        .token-display {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .success {
+            color: #00ff88;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Connect Your Bank Account</h1>
+        <p>This will connect your real bank account to the Relationship Dashboard.</p>
+        
+        <button id="link-button" class="button">Connect Bank Account</button>
+        
+        <div id="result" style="display: none;">
+            <div class="success">✅ Bank Connected Successfully!</div>
+            <p>Copy this public token and paste it in your terminal:</p>
+            <div id="public-token" class="token-display"></div>
+            <button onclick="copyToken()" class="button">Copy Token</button>
+        </div>
+    </div>
+
+    <script>
+        // Get token from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const linkToken = urlParams.get('token');
+        
+        if (!linkToken) {
+            document.body.innerHTML = '<div class="container"><h1>❌ Error</h1><p>No link token provided in URL</p></div>';
+        }
+
+        // Initialize Plaid Link
+        const handler = Plaid.create({
+            token: linkToken,
+            onSuccess: function(public_token, metadata) {
+                console.log('Success:', public_token, metadata);
+                
+                // Show the token to the user
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('public-token').textContent = public_token;
+                document.getElementById('link-button').style.display = 'none';
+                
+                // Store the token for copying
+                window.publicToken = public_token;
+            },
+            onExit: function(err, metadata) {
+                console.log('Exit:', err, metadata);
+                if (err) {
+                    alert('Error: ' + err.error_message);
+                }
+            },
+            onEvent: function(eventName, metadata) {
+                console.log('Event:', eventName, metadata);
+            }
+        });
+
+        // Add click handler to button
+        document.getElementById('link-button').addEventListener('click', function() {
+            handler.open();
+        });
+
+        function copyToken() {
+            navigator.clipboard.writeText(window.publicToken).then(function() {
+                alert('Token copied to clipboard!');
+            });
+        }
+    </script>
+</body>
+</html> 

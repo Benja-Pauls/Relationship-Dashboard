@@ -29,7 +29,7 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="h-screen text-white overflow-hidden flex flex-col" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+    <div className="min-h-screen text-white flex flex-col" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
       {/* Compact Navigation */}
       <nav className="flex-shrink-0">
         <div 
@@ -80,7 +80,7 @@ const App: React.FC = () => {
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1">
         {renderPage()}
       </main>
     </div>

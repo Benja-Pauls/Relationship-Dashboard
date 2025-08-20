@@ -1,183 +1,248 @@
-import { PlaidData } from '../types/metrics';
+import { PartnerFinances } from '../types/metrics';
 
-// Note: This is a placeholder service. In a real implementation, you would:
-// 1. Set up Plaid API credentials in environment variables
-// 2. Implement proper OAuth flow for account linking
-// 3. Handle token management and refresh
-// 4. Implement proper error handling and retry logic
+const API_BASE_URL = 'http://localhost:8000/api';
 
 export class PlaidService {
-  private static readonly PLAID_ENV = process.env.REACT_APP_PLAID_ENV || 'sandbox';
-  private static readonly CLIENT_ID = process.env.REACT_APP_PLAID_CLIENT_ID;
-  private static readonly SECRET = process.env.REACT_APP_PLAID_SECRET;
-  private static readonly ACCESS_TOKEN_KEY = 'plaid_access_token';
+  private static linkToken: string | null = null;
+  private static accessToken: string | null = null;
 
-  // Initialize Plaid Link - would use the real Plaid Link SDK
-  static async initializePlaidLink(): Promise<void> {
-    // In a real implementation, this would:
-    // 1. Load the Plaid Link SDK
-    // 2. Create a link_token from your backend
-    // 3. Initialize the Plaid Link flow
-    // 4. Handle the onSuccess callback to exchange public_token for access_token
-    
-    console.log('Plaid Link would be initialized here');
-    
-    // For demo purposes, we'll simulate having an access token
-    if (!this.getAccessToken()) {
-      // Simulate a successful link
-      localStorage.setItem(this.ACCESS_TOKEN_KEY, 'demo_access_token');
-    }
-  }
-
-  // Get stored access token
-  static getAccessToken(): string | null {
-    return localStorage.getItem(this.ACCESS_TOKEN_KEY);
-  }
-
-  // Remove access token (for unlinking accounts)
-  static removeAccessToken(): void {
-    localStorage.removeItem(this.ACCESS_TOKEN_KEY);
-  }
-
-  // Fetch account balances
-  static async getAccountBalances(): Promise<PlaidData> {
-    const accessToken = this.getAccessToken();
-    
-    if (!accessToken) {
-      throw new Error('No Plaid access token found. Please link your accounts first.');
-    }
-
+  // Create a link token for Plaid Link
+  static async createLinkToken(): Promise<string> {
     try {
-      // In a real implementation, this would make an API call to your backend
-      // which would then call Plaid's /accounts/balance/get endpoint
-      
-      // For demo purposes, return mock data
-      return this.getMockPlaidData();
-      
-      // Real implementation would look like:
-      // const response = await fetch('/api/plaid/accounts/balance', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ access_token: accessToken })
-      // });
-      // 
-      // if (!response.ok) {
-      //   throw new Error('Failed to fetch account balances');
-      // }
-      // 
-      // return response.json();
-      
-    } catch (error) {
-      console.error('Error fetching Plaid data:', error);
-      throw error;
-    }
-  }
-
-  // Get transaction history for calculating weekly changes
-  static async getTransactions(startDate: Date, endDate: Date): Promise<any[]> {
-    const accessToken = this.getAccessToken();
-    
-    if (!accessToken) {
-      throw new Error('No Plaid access token found.');
-    }
-
-    try {
-      // In a real implementation, this would call Plaid's /transactions/get endpoint
-      // For demo, return empty array
-      return [];
-      
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      throw error;
-    }
-  }
-
-  // Calculate weekly change in balances
-  static async calculateWeeklyChange(): Promise<number> {
-    try {
-      // In a real implementation, this would:
-      // 1. Get current balances
-      // 2. Get balances from 7 days ago (either from stored data or transactions)
-      // 3. Calculate the difference
-      
-      // For demo, return a random change
-      const randomChange = (Math.random() - 0.5) * 1000; // Random change between -500 and +500
-      return Math.round(randomChange * 100) / 100; // Round to 2 decimal places
-      
-    } catch (error) {
-      console.error('Error calculating weekly change:', error);
-      return 0;
-    }
-  }
-
-  // Mock data for demonstration
-  private static getMockPlaidData(): PlaidData {
-    return {
-      accounts: [
-        {
-          account_id: 'demo_checking_001',
-          balances: {
-            available: 8420.50,
-            current: 8420.50,
-            limit: null,
-            iso_currency_code: 'USD'
-          },
-          name: 'Joint Checking',
-          type: 'depository',
-          subtype: 'checking'
+      const response = await fetch(`${API_BASE_URL}/create_link_token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          account_id: 'demo_savings_001',
-          balances: {
-            available: 7000.00,
-            current: 7000.00,
-            limit: null,
-            iso_currency_code: 'USD'
-          },
-          name: 'Savings Account',
-          type: 'depository',
-          subtype: 'savings'
-        }
-      ],
-      lastUpdated: new Date().toISOString()
-    };
-  }
+      });
 
-  // Get total balance across all accounts
-  static async getTotalBalance(): Promise<number> {
-    try {
-      const plaidData = await this.getAccountBalances();
-      const total = plaidData.accounts.reduce((sum, account) => {
-        return sum + (account.balances.current || 0);
-      }, 0);
-      
-      return Math.round(total * 100) / 100; // Round to 2 decimal places
-      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.linkToken = data.link_token;
+      return data.link_token;
     } catch (error) {
-      console.error('Error calculating total balance:', error);
-      return 0;
+      console.error('Error creating link token:', error);
+      throw error;
     }
   }
 
-  // Health check to see if Plaid is properly configured
-  static isConfigured(): boolean {
-    // In a real implementation, check if environment variables are set
-    return true; // For demo, always return true
+  // Exchange public token for access token
+  static async exchangePublicToken(publicToken: string): Promise<string> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/exchange_public_token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ public_token: publicToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      return data.access_token;
+    } catch (error) {
+      console.error('Error exchanging public token:', error);
+      throw error;
+    }
   }
 
-  // Link a new account (would open Plaid Link)
+  // Get all linked accounts
+  static async getAccounts(): Promise<any[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/accounts`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.accounts;
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      throw error;
+    }
+  }
+
+  // Categorize an account as belonging to Sydney, Ben, or Investments
+  static async categorizeAccount(accountId: string, owner: 'sydney' | 'ben' | 'investments'): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/categorize_account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account_id: accountId, owner }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error categorizing account:', error);
+      throw error;
+    }
+  }
+
+  // Get finance data for the dashboard
+  static async getFinanceData(): Promise<PartnerFinances> {
+    console.log('PlaidService: Starting API call to:', `${API_BASE_URL}/balances`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/balances`);
+      console.log('PlaidService: Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('PlaidService: HTTP error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('PlaidService: Received finance data:', data);
+
+      // Backend now returns aggregated data in the format: { sydney: {balance, weeklyChange}, ben: {...}, investments: {...} }
+      const result = {
+        sydneyBalance: data.sydney?.balance || 0,
+        benBalance: data.ben?.balance || 0,
+        investmentsBalance: data.investments?.balance || 0,
+        sydneyWeeklyChange: data.sydney?.weeklyChange || 0,
+        benWeeklyChange: data.ben?.weeklyChange || 0,
+        investmentsWeeklyChange: data.investments?.weeklyChange || 0
+      };
+      console.log('PlaidService: Returning finance data:', result);
+      return result;
+    } catch (error) {
+      console.error('Error fetching finance data from backend:', error);
+      // Throw error so the dataService can handle it properly
+      throw error;
+    }
+  }
+
+  // Check if backend is healthy and Plaid is configured
+  static async checkHealth(): Promise<{ status: string; plaid_configured: boolean }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error checking health:', error);
+      return { status: 'error', plaid_configured: false };
+    }
+  }
+
+  // Initialize Plaid Link (setup method for the dashboard)
+  static async initializePlaidLink(): Promise<void> {
+    try {
+      const health = await this.checkHealth();
+      if (health.plaid_configured) {
+        console.log('Plaid backend is configured and ready');
+      } else {
+        console.warn('Plaid backend is not properly configured');
+      }
+    } catch (error) {
+      console.error('Error initializing Plaid link:', error);
+    }
+  }
+
+  // Open Plaid Link to connect a bank account
+  static async openPlaidLink(): Promise<void> {
+    try {
+      const linkToken = await this.createLinkToken();
+      
+      // Create Plaid Link handler
+      const handler = (window as any).Plaid.create({
+        token: linkToken,
+        onSuccess: async (public_token: string, metadata: any) => {
+          console.log('Plaid Link success:', { public_token, metadata });
+          try {
+            const accessToken = await this.exchangePublicToken(public_token);
+            console.log('Access token received:', accessToken);
+            
+            // Auto-categorize accounts (you can customize this logic)
+            const accounts = await this.getAccounts();
+            for (const account of accounts) {
+              if (account.owner === 'uncategorized') {
+                // Simple auto-categorization - you can modify this
+                let owner: 'ben' | 'sydney' | 'investments' = 'ben';
+                if (account.type === 'credit') owner = 'sydney';
+                if (account.subtype?.includes('investment')) owner = 'investments';
+                
+                await this.categorizeAccount(account.account_id, owner);
+              }
+            }
+            
+            alert('Bank account connected successfully! Refresh the page to see your real data.');
+            window.location.reload();
+          } catch (error) {
+            console.error('Error exchanging token:', error);
+            alert('Error connecting account. Please try again.');
+          }
+        },
+        onExit: (err: any, metadata: any) => {
+          console.log('Plaid Link exited:', { err, metadata });
+        },
+        onEvent: (eventName: string, metadata: any) => {
+          console.log('Plaid Link event:', { eventName, metadata });
+        },
+      });
+
+      handler.open();
+    } catch (error) {
+      console.error('Error opening Plaid Link:', error);
+      alert('Error opening bank connection. Please try again.');
+    }
+  }
+
+  // Legacy methods for backward compatibility
+  static getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  static removeAccessToken(): void {
+    this.accessToken = null;
+  }
+
+  static async getAccountBalances(): Promise<any[]> {
+    return this.getAccounts();
+  }
+
+  static async getTransactions(): Promise<any[]> {
+    // This would call a transactions endpoint if needed
+    return [];
+  }
+
+  static calculateWeeklyChange(): number {
+    // This is now handled by the backend
+    return 0;
+  }
+
+  static getMockPlaidData(): any {
+    // Not needed anymore, but kept for compatibility
+    return null;
+  }
+
+  static getTotalBalance(): number {
+    // This would need to be calculated from getFinanceData()
+    return 0;
+  }
+
+  static isConfigured(): boolean {
+    return Boolean(this.accessToken);
+  }
+
   static async linkAccount(): Promise<void> {
-    // In a real implementation, this would:
-    // 1. Create a new link_token
-    // 2. Open Plaid Link modal
-    // 3. Handle the success flow
-    
-    console.log('Plaid Link modal would open here');
-    
-    // For demo, just simulate success
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    localStorage.setItem(this.ACCESS_TOKEN_KEY, 'demo_access_token_' + Date.now());
+    // This would integrate with Plaid Link frontend component
+    const linkToken = await this.createLinkToken();
+    console.log('Use this link token with Plaid Link:', linkToken);
   }
 } 
