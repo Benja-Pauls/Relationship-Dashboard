@@ -280,17 +280,26 @@ async def calculate_weekly_change(owner: str) -> float:
     for access_token in access_tokens:
         try:
             # Get transactions for the past 14 days to compare weeks
-            start_date = (datetime.now() - timedelta(days=14)).date()
-            end_date = datetime.now().date()
+            start_date = (datetime.now() - timedelta(days=14)).date().isoformat()
+            end_date = datetime.now().date().isoformat()
             
-            request = {
-                'access_token': access_token,
-                'start_date': start_date,
-                'end_date': end_date
+            transaction_data = {
+                "client_id": PLAID_CLIENT_ID,
+                "secret": PLAID_SECRET,
+                "access_token": access_token,
+                "start_date": start_date,
+                "end_date": end_date
             }
             
-            response = client.transactions_get(request)
-            transactions = response['transactions']
+            r = requests.post("https://production.plaid.com/transactions/get", 
+                            json=transaction_data, timeout=30)
+            
+            if r.status_code != 200:
+                print(f"Plaid transactions API error: {r.status_code} - {r.text}")
+                continue
+                
+            response_data = r.json()
+            transactions = response_data.get("transactions", [])
             
             # Filter transactions for accounts owned by this person
             for transaction in transactions:
@@ -311,13 +320,10 @@ async def calculate_weekly_change(owner: str) -> float:
             print(f"Error calculating weekly change: {str(e)}")
             continue
     
-    # If no real data, return a small mock change
+    # If no real transaction data found, return 0 instead of fake data
     if total_change == 0:
-        import random
-        if owner == 'investments':
-            total_change = (random.random() - 0.4) * 800  # Can be positive or negative
-        else:
-            total_change = (random.random() - 0.6) * 400  # Slightly negative bias (spending)
+        print(f"No transactions found for {owner} in the past week")
+        total_change = 0.0  # Return actual 0 instead of fake random numbers
     
     return total_change
 

@@ -244,10 +244,6 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             <span className="text-sm font-bold text-white">
               {formatCurrency(sydneyBalance)}
             </span>
-            <div className={`flex items-center space-x-1 text-xs ${getChangeColor(sydneyWeeklyChange)}`}>
-              {getChangeIcon(sydneyWeeklyChange)}
-              <span>{formatChange(sydneyWeeklyChange)}</span>
-            </div>
           </div>
         </div>
 
@@ -270,10 +266,6 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             <span className="text-sm font-bold text-white">
               {formatCurrency(benBalance)}
             </span>
-            <div className={`flex items-center space-x-1 text-xs ${getChangeColor(benWeeklyChange)}`}>
-              {getChangeIcon(benWeeklyChange)}
-              <span>{formatChange(benWeeklyChange)}</span>
-            </div>
           </div>
         </div>
 
@@ -296,10 +288,6 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             <span className="text-sm font-bold text-white">
               {formatCurrency(investmentsBalance)}
             </span>
-            <div className={`flex items-center space-x-1 text-xs ${getChangeColor(investmentsWeeklyChange)}`}>
-              {getChangeIcon(investmentsWeeklyChange)}
-              <span>{formatChange(investmentsWeeklyChange)}</span>
-            </div>
           </div>
         </div>
       </div>

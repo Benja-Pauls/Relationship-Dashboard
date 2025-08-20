@@ -277,9 +277,9 @@ const Dashboard: React.FC = () => {
               sydneyBalance={partnerFinances?.sydneyBalance || 0}
               benBalance={partnerFinances?.benBalance || 0}
               investmentsBalance={partnerFinances?.investmentsBalance || 0}
-              sydneyWeeklyChange={partnerFinances?.sydneyWeeklyChange || 0}
-              benWeeklyChange={partnerFinances?.benWeeklyChange || 0}
-              investmentsWeeklyChange={partnerFinances?.investmentsWeeklyChange || 0}
+              sydneyWeeklyChange={0}
+              benWeeklyChange={0}
+              investmentsWeeklyChange={0}
               isLoading={!partnerFinances}
               error={partnerFinances ? undefined : "Unable to load financial data"}
             />
