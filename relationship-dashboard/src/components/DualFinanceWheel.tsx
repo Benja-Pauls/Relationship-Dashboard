@@ -1,7 +1,8 @@
-import React from 'react';
-import { TrendingUp, TrendingDown, AccountBalance, Person, TrendingFlat } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { TrendingUp, TrendingDown, AccountBalance, Person, TrendingFlat, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { FINANCE_COLORS } from '../types/metrics';
 import RadialCenterIcon from './RadialCenterIcon';
+import { PlaidService } from '../services/plaidService';
 
 interface DualFinanceWheelProps {
   sydneyBalance: number;
@@ -48,6 +49,44 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
     if (change > 0) return 'text-green-400';
     if (change < 0) return 'text-red-400';
     return 'text-gray-400';
+  };
+
+  type AccountItem = {
+    account_id: string;
+    name: string;
+    type: string;
+    subtype?: string;
+    balance: number;
+    available: number | null;
+    owner: 'sydney' | 'ben' | 'investments' | string;
+  };
+
+  const [accounts, setAccounts] = useState<AccountItem[] | null>(null);
+  const [expandedOwner, setExpandedOwner] = useState<'sydney' | 'ben' | 'investments' | null>(null);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+
+  const ensureAccountsLoaded = async () => {
+    if (accounts || accountsLoading) return;
+    try {
+      setAccountsLoading(true);
+      const list = await PlaidService.getAccounts();
+      setAccounts(list as AccountItem[]);
+      setAccountsError(null);
+    } catch (e: any) {
+      setAccountsError(e?.message || 'Failed to load accounts');
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
+
+  const handleToggle = async (owner: 'sydney' | 'ben' | 'investments') => {
+    await ensureAccountsLoaded();
+    setExpandedOwner(prev => (prev === owner ? null : owner));
+  };
+
+  const accountsByOwner = (owner: 'sydney' | 'ben' | 'investments') => {
+    return (accounts || []).filter(a => a.owner === owner);
   };
 
   const totalBalance = sydneyBalance + benBalance + investmentsBalance;
@@ -227,11 +266,13 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
       <div className="space-y-1 mb-2">
         {/* Sydney Row */}
         <div
-          className="flex items-center justify-between p-2 rounded-xl border transition-all duration-300"
+          className="flex items-center justify-between p-2 rounded-xl border transition-all duration-300 cursor-pointer"
           style={{
             background: `linear-gradient(135deg, ${FINANCE_COLORS.sydney.primary}10, ${FINANCE_COLORS.sydney.primary}05)`,
             borderColor: `${FINANCE_COLORS.sydney.primary}30`
           }}
+          onClick={() => handleToggle('sydney')}
+          role="button"
         >
           <div className="flex items-center space-x-3">
             <div 
@@ -240,20 +281,50 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             />
             <span className="text-sm font-medium text-white">{FINANCE_COLORS.sydney.name}</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <span className="text-sm font-bold text-white">
               {formatCurrency(sydneyBalance)}
             </span>
+            {expandedOwner === 'sydney' ? (
+              <ExpandLess sx={{ fontSize: 16 }} className="text-gray-300" />
+            ) : (
+              <ExpandMore sx={{ fontSize: 16 }} className="text-gray-300" />
+            )}
           </div>
         </div>
+        {expandedOwner === 'sydney' && (
+          <div className="rounded-xl border p-2" style={{ borderColor: `${FINANCE_COLORS.sydney.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.sydney.primary}08, transparent)` }}>
+            {accountsLoading && <div className="text-xs text-gray-400">Loading accounts…</div>}
+            {accountsError && <div className="text-xs text-red-400">{accountsError}</div>}
+            {!accountsLoading && !accountsError && (
+              <div className="space-y-1">
+                {accountsByOwner('sydney').length === 0 && (
+                  <div className="text-xs text-gray-400">No accounts categorized to Sydney.</div>
+                )}
+                {accountsByOwner('sydney').map(acc => (
+                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-300">{acc.name}</span>
+                      <span className="text-gray-500">{acc.subtype || acc.type}</span>
+                      <span className="text-gray-500">({acc.owner && (acc.owner.charAt(0).toUpperCase() + acc.owner.slice(1))})</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(acc.balance || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Ben Row */}
         <div
-          className="flex items-center justify-between p-2 rounded-xl border transition-all duration-300"
+          className="flex items-center justify-between p-2 rounded-xl border transition-all duration-300 cursor-pointer"
           style={{
             background: `linear-gradient(135deg, ${FINANCE_COLORS.ben.primary}10, ${FINANCE_COLORS.ben.primary}05)`,
             borderColor: `${FINANCE_COLORS.ben.primary}30`
           }}
+          onClick={() => handleToggle('ben')}
+          role="button"
         >
           <div className="flex items-center space-x-3">
             <div 
@@ -262,20 +333,50 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             />
             <span className="text-sm font-medium text-white">{FINANCE_COLORS.ben.name}</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <span className="text-sm font-bold text-white">
               {formatCurrency(benBalance)}
             </span>
+            {expandedOwner === 'ben' ? (
+              <ExpandLess sx={{ fontSize: 16 }} className="text-gray-300" />
+            ) : (
+              <ExpandMore sx={{ fontSize: 16 }} className="text-gray-300" />
+            )}
           </div>
         </div>
+        {expandedOwner === 'ben' && (
+          <div className="rounded-xl border p-2" style={{ borderColor: `${FINANCE_COLORS.ben.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.ben.primary}08, transparent)` }}>
+            {accountsLoading && <div className="text-xs text-gray-400">Loading accounts…</div>}
+            {accountsError && <div className="text-xs text-red-400">{accountsError}</div>}
+            {!accountsLoading && !accountsError && (
+              <div className="space-y-1">
+                {accountsByOwner('ben').length === 0 && (
+                  <div className="text-xs text-gray-400">No accounts categorized to Ben.</div>
+                )}
+                {accountsByOwner('ben').map(acc => (
+                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-300">{acc.name}</span>
+                      <span className="text-gray-500">{acc.subtype || acc.type}</span>
+                      <span className="text-gray-500">({acc.owner && (acc.owner.charAt(0).toUpperCase() + acc.owner.slice(1))})</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(acc.balance || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Investments Row */}
         <div
-          className="flex items-center justify-between p-2 rounded-xl border transition-all duration-300"
+          className="flex items-center justify-between p-2 rounded-xl border transition-all duration-300 cursor-pointer"
           style={{
             background: `linear-gradient(135deg, ${FINANCE_COLORS.investments.primary}10, ${FINANCE_COLORS.investments.primary}05)`,
             borderColor: `${FINANCE_COLORS.investments.primary}30`
           }}
+          onClick={() => handleToggle('investments')}
+          role="button"
         >
           <div className="flex items-center space-x-3">
             <div 
@@ -284,12 +385,40 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             />
             <span className="text-sm font-medium text-white">{FINANCE_COLORS.investments.name}</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <span className="text-sm font-bold text-white">
               {formatCurrency(investmentsBalance)}
             </span>
+            {expandedOwner === 'investments' ? (
+              <ExpandLess sx={{ fontSize: 16 }} className="text-gray-300" />
+            ) : (
+              <ExpandMore sx={{ fontSize: 16 }} className="text-gray-300" />
+            )}
           </div>
         </div>
+        {expandedOwner === 'investments' && (
+          <div className="rounded-xl border p-2" style={{ borderColor: `${FINANCE_COLORS.investments.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.investments.primary}08, transparent)` }}>
+            {accountsLoading && <div className="text-xs text-gray-400">Loading accounts…</div>}
+            {accountsError && <div className="text-xs text-red-400">{accountsError}</div>}
+            {!accountsLoading && !accountsError && (
+              <div className="space-y-1">
+                {accountsByOwner('investments').length === 0 && (
+                  <div className="text-xs text-gray-400">No accounts categorized to Investments.</div>
+                )}
+                {accountsByOwner('investments').map(acc => (
+                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-300">{acc.name}</span>
+                      <span className="text-gray-500">{acc.subtype || acc.type}</span>
+                      <span className="text-gray-500">({acc.owner && (acc.owner.charAt(0).toUpperCase() + acc.owner.slice(1))})</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(acc.balance || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary Footer */}
