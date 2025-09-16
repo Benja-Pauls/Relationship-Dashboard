@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { Timeline, Assessment, EmojiEvents, TrendingUp, Favorite, LocalDining, Delete, Pets, AccountBalance, Schedule, Star } from '@mui/icons-material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { Timeline, Assessment, EmojiEvents, TrendingUp, Star } from '@mui/icons-material';
 import { DataService } from '../services/dataService';
 import { MetricEntry, METRIC_CONFIGS, DARK_THEME, PartnerFinances } from '../types/metrics';
 
@@ -33,69 +33,114 @@ interface AnalyticsData {
 
 const TrendsPage: React.FC = () => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
-  const [timeRange, setTimeRange] = useState<number>(30);
+  const [timeRange] = useState<number>(30);
   const [partnerFinances, setPartnerFinances] = useState<PartnerFinances | null>(null);
 
-  useEffect(() => {
-    loadAnalyticsData();
-    loadFinanceData();
-  }, [timeRange]);
-
-  const loadFinanceData = async () => {
+  const loadFinanceData = useCallback(async () => {
     try {
       const finances = await DataService.getPartnerFinances();
       setPartnerFinances(finances);
     } catch (error) {
       console.error('Failed to load finance data for analytics:', error);
     }
-  };
+  }, []);
 
-  const loadAnalyticsData = () => {
-    const entries = DataService.getLastNMonthsEntries(3);
-    const recentEntries = entries.slice(-timeRange);
-    
-    // Calculate relationship health score (0-100)
-    const relationshipScore = calculateRelationshipScore(recentEntries);
-    
-    // Calculate streaks
-    const { currentStreak, longestStreak } = calculateStreaks(entries);
-    
-    // Weekly progress comparison
-    const weeklyProgress = calculateWeeklyProgress(entries);
-    
-    // Goal achievement rates
-    const goalAchievement = calculateGoalAchievement(recentEntries);
-    
-    // Trend data for charts
-    const trendData = recentEntries.map(entry => ({
-      date: entry.date,
-      love: (entry.sexCount * 50) + (entry.qualityTimeHours * 10), // Love score
-      chores: (entry.dishesDone * 25) + (entry.kittyDuties * 20) + Math.max(0, 50 - (entry.trashFullHours * 10)), // Chore score
-      overall: 0, // Will be calculated
-      formattedDate: new Date(entry.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      })
-    }));
-    
-    // Calculate overall scores
-    trendData.forEach(day => {
-      day.overall = Math.round((day.love + day.chores) / 2);
-    });
-    
-    // Generate insights
-    const insights = generateInsights(recentEntries, relationshipScore);
-    
-    setAnalyticsData({
-      relationshipScore,
-      currentStreak,
-      longestStreak,
-      weeklyProgress,
-      goalAchievement,
-      trendData,
-      insights
-    });
-  };
+  const loadAnalyticsData = useCallback(async () => {
+    try {
+      // Get historical data from backend
+      const historyData = await DataService.getAnalyticsHistory();
+      const weeklyHistory = historyData.weekly_history || [];
+      
+      // Convert backend data format to analytics format
+      const entries = weeklyHistory.flatMap((week: any) => {
+        return Object.entries(week.daily_entries || {}).map(([date, entry]: [string, any]) => ({
+          date,
+          sexCount: entry.sexCount || 0,
+          qualityTimeHours: entry.qualityTimeHours || 0,
+          dishesDone: entry.dishesDone || 0,
+          trashFullHours: entry.trashFullHours || 0,
+          kittyDuties: entry.kittyDuties || 0
+        }));
+      });
+      
+      // Filter by time range
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+      const recentEntries = entries.filter((entry: any) => 
+        new Date(entry.date) >= cutoffDate
+      ).slice(-timeRange);
+      
+      // Calculate relationship health score (0-100)
+      const relationshipScore = calculateRelationshipScore(recentEntries);
+      
+      // Calculate streaks
+      const { currentStreak, longestStreak } = calculateStreaks(entries);
+      
+      // Weekly progress comparison - use the weekly totals directly
+      const weeklyProgress = weeklyHistory.slice(-8).map((week: any) => {
+        const totals = week.weekly_totals || {};
+        const loveScore = Math.min(100, ((totals.sexCount || 0) / 2) * 100);
+        const choreScore = Math.min(100, ((totals.dishesDone || 0) / 6) * 100);
+        
+        return {
+          week: new Date(week.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          loveScore: Math.round(loveScore),
+          choreScore: Math.round(choreScore),
+          overallScore: Math.round((loveScore + choreScore) / 2)
+        };
+      });
+      
+      // Goal achievement rates
+      const goalAchievement = calculateGoalAchievement(recentEntries);
+      
+      // Trend data for charts
+      const trendData = recentEntries.map((entry: any) => ({
+        date: entry.date,
+        love: (entry.sexCount * 50) + (entry.qualityTimeHours * 10), // Love score
+        chores: (entry.dishesDone * 25) + (entry.kittyDuties * 20) + Math.max(0, 50 - (entry.trashFullHours * 10)), // Chore score
+        overall: 0, // Will be calculated
+        formattedDate: new Date(entry.date).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        })
+      }));
+      
+      // Calculate overall scores
+      trendData.forEach((day: any) => {
+        day.overall = Math.round((day.love + day.chores) / 2);
+      });
+      
+      // Generate insights
+      const insights = generateInsights(recentEntries, relationshipScore);
+      
+      setAnalyticsData({
+        relationshipScore,
+        currentStreak,
+        longestStreak,
+        weeklyProgress,
+        goalAchievement,
+        trendData,
+        insights
+      });
+    } catch (error) {
+      console.error('Failed to load analytics data:', error);
+      // Provide fallback empty data
+      setAnalyticsData({
+        relationshipScore: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        weeklyProgress: [],
+        goalAchievement: [],
+        trendData: [],
+        insights: ['Unable to load analytics data. Please check your connection.']
+      });
+    }
+  }, [timeRange]);
+
+  useEffect(() => {
+    loadAnalyticsData();
+    loadFinanceData();
+  }, [loadAnalyticsData, loadFinanceData]);
 
   const calculateRelationshipScore = (entries: MetricEntry[]): number => {
     if (entries.length === 0) return 0;
@@ -143,31 +188,7 @@ const TrendsPage: React.FC = () => {
     return { currentStreak, longestStreak };
   };
 
-  const calculateWeeklyProgress = (entries: MetricEntry[]) => {
-    const weeks: { [key: string]: MetricEntry[] } = {};
-    
-    entries.forEach(entry => {
-      const date = new Date(entry.date);
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay());
-      const weekKey = weekStart.toISOString().split('T')[0];
-      
-      if (!weeks[weekKey]) weeks[weekKey] = [];
-      weeks[weekKey].push(entry);
-    });
-    
-    return Object.entries(weeks).slice(-8).map(([weekStart, weekEntries]) => {
-      const loveScore = Math.min(100, (weekEntries.reduce((sum, e) => sum + e.sexCount, 0) / 2) * 100);
-      const choreScore = Math.min(100, ((weekEntries.filter(e => e.dishesDone > 0).length / 7) * 100));
-      
-      return {
-        week: new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        loveScore: Math.round(loveScore),
-        choreScore: Math.round(choreScore),
-        overallScore: Math.round((loveScore + choreScore) / 2)
-      };
-    });
-  };
+
 
   const calculateGoalAchievement = (entries: MetricEntry[]) => {
     const achievements = METRIC_CONFIGS.map(config => {

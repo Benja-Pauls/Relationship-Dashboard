@@ -1,6 +1,7 @@
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-plaid-python>=11.0.0
+fastapi>=0.68.0
+uvicorn>=0.15.0
+plaid-python>=9.0.0
 python-dotenv>=0.19.0
-pydantic>=2.0.0
-python-multipart>=0.0.5 
+pydantic>=1.8.0
+python-multipart>=0.0.5
+pytz>=2021.3 

@@ -1,69 +1,21 @@
-import { MetricEntry, Note, MonthlyMetrics, WeeklyMetrics, PartnerFinances } from '../types/metrics';
+import { MetricEntry, Note, WeeklyMetrics, PartnerFinances } from '../types/metrics';
 
-const CSV_STORAGE_KEY = 'relationship_dashboard_data';
-const NOTES_STORAGE_KEY = 'relationship_dashboard_notes';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 export class DataService {
-  // Get all metric entries from localStorage
-  static getMetricEntries(): MetricEntry[] {
-    const data = localStorage.getItem(CSV_STORAGE_KEY);
-    if (!data) {
-      return [];
-    }
+  // Metrics management
+  static async getTodaysEntry(): Promise<MetricEntry> {
     try {
-      return JSON.parse(data);
+      const response = await fetch(`${API_BASE_URL}/metrics/today`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
     } catch (error) {
-      console.error('Error parsing metric entries:', error);
-      return [];
-    }
-  }
-
-  // Save metric entries to localStorage
-  static saveMetricEntries(entries: MetricEntry[]): void {
-    try {
-      localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(entries));
-    } catch (error) {
-      console.error('Error saving metric entries:', error);
-    }
-  }
-
-  // Get today's metric entry or create a new one
-  static getTodaysEntry(): MetricEntry {
-    const today = new Date().toISOString().split('T')[0];
-    const entries = this.getMetricEntries();
-    const todaysEntry = entries.find(entry => entry.date === today);
-    
-    if (todaysEntry) {
-      return todaysEntry;
-    }
-
-    // Create new entry for today
-    const newEntry: MetricEntry = {
-      date: today,
-      sexCount: 0,
-      qualityTimeHours: 0,
-      dishesDone: 0,
-      trashFullHours: 0,
-      kittyDuties: 0,
-      notes: []
-    };
-
-    entries.push(newEntry);
-    this.saveMetricEntries(entries);
-    return newEntry;
-  }
-
-  // Update a specific metric for today
-  static updateTodaysMetric(metric: keyof Pick<MetricEntry, 'sexCount' | 'qualityTimeHours' | 'dishesDone' | 'trashFullHours' | 'kittyDuties'>, increment: number): MetricEntry {
-    const entries = this.getMetricEntries();
-    const today = new Date().toISOString().split('T')[0];
-    const entryIndex = entries.findIndex(entry => entry.date === today);
-    
-    if (entryIndex >= 0) {
-      entries[entryIndex][metric] = Math.max(0, entries[entryIndex][metric] + increment);
-    } else {
-      const newEntry: MetricEntry = {
-        date: today,
+      console.error('Error fetching today\'s metrics:', error);
+      // Return default entry if backend is unavailable
+      return {
+        date: new Date().toISOString().split('T')[0],
         sexCount: 0,
         qualityTimeHours: 0,
         dishesDone: 0,
@@ -71,209 +23,221 @@ export class DataService {
         kittyDuties: 0,
         notes: []
       };
-      newEntry[metric] = Math.max(0, increment);
-      entries.push(newEntry);
     }
-
-    this.saveMetricEntries(entries);
-    return entries.find(entry => entry.date === today)!;
   }
 
-  // Get monthly metrics for the current month
-  static getCurrentMonthMetrics(): MonthlyMetrics {
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const entries = this.getMetricEntries().filter(entry => entry.date.startsWith(currentMonth));
-    
-    const totalSexCount = entries.reduce((sum, entry) => sum + entry.sexCount, 0);
-    const totalDishesDone = entries.reduce((sum, entry) => sum + entry.dishesDone, 0);
-    const totalKittyDuties = entries.reduce((sum, entry) => sum + entry.kittyDuties, 0);
-    const averageTrashFullHours = entries.length > 0 
-      ? entries.reduce((sum, entry) => sum + entry.trashFullHours, 0) / entries.length 
-      : 0;
-    
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const dishesAdherencePercent = entries.length > 0 
-      ? (entries.filter(entry => entry.dishesDone > 0).length / Math.min(daysInMonth, now.getDate())) * 100
-      : 0;
-
-    return {
-      month: currentMonth,
-      totalSexCount,
-      totalDishesDone,
-      averageTrashFullHours,
-      totalKittyDuties,
-      averageBalance: 0, // Will be updated by Plaid service
-      dishesAdherencePercent
-    };
+  static async getCurrentWeekMetrics(): Promise<WeeklyMetrics> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/metrics/week`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return {
+        weekStart: data.weekStart,
+        sexCount: data.sexCount || 0,
+        qualityTimeHours: data.qualityTimeHours || 0,
+        dishesDone: data.dishesDone || 0,
+        trashTargetHours: data.trashTargetHours || 0,
+        kittyDuties: data.kittyDuties || 0,
+        partner1FinanceChange: 0,
+        partner2FinanceChange: 0
+      };
+    } catch (error) {
+      console.error('Error fetching weekly metrics:', error);
+      return {
+        weekStart: new Date().toISOString().split('T')[0],
+        sexCount: 0,
+        qualityTimeHours: 0,
+        dishesDone: 0,
+        trashTargetHours: 0,
+        kittyDuties: 0,
+        partner1FinanceChange: 0,
+        partner2FinanceChange: 0
+      };
+    }
   }
 
-  // Get entries for the last N months for trending
-  static getLastNMonthsEntries(months: number): MetricEntry[] {
-    const now = new Date();
-    const cutoffDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
-    
-    return this.getMetricEntries().filter(entry => entry.date >= cutoffString);
+  static async updateTodaysMetric(metric: keyof Pick<MetricEntry, 'sexCount' | 'qualityTimeHours' | 'dishesDone' | 'trashFullHours' | 'kittyDuties'>, increment: number): Promise<MetricEntry> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/metrics/update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ metric, increment }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const updatedEntry = await response.json();
+      return {
+        ...updatedEntry,
+        notes: [] // Notes are handled separately
+      };
+    } catch (error) {
+      console.error('Error updating metric:', error);
+      throw error;
+    }
   }
 
-  // Notes management
-  static getNotes(): Note[] {
-    const data = localStorage.getItem(NOTES_STORAGE_KEY);
-    if (!data) {
+  static async getResetTimers(): Promise<{ daily_reset_in_seconds: number; weekly_reset_in_seconds: number; daily_reset_time: string; weekly_reset_time: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/reset_timers`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching reset timers:', error);
+      return {
+        daily_reset_in_seconds: 0,
+        weekly_reset_in_seconds: 0,
+        daily_reset_time: '',
+        weekly_reset_time: ''
+      };
+    }
+  }
+
+  // Messages management
+  static async getNotes(): Promise<Note[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/messages`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.messages || [];
+    } catch (error) {
+      console.error('Error fetching messages:', error);
       return [];
     }
+  }
+
+  static async addNote(content: string, author: 'partner1' | 'partner2'): Promise<Note> {
     try {
-      return JSON.parse(data);
+      const response = await fetch(`${API_BASE_URL}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content, author }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     } catch (error) {
-      console.error('Error parsing notes:', error);
-      return [];
+      console.error('Error adding message:', error);
+      throw error;
     }
   }
 
-  static saveNotes(notes: Note[]): void {
+  static async updateNote(noteId: string, updates: Partial<Note>): Promise<void> {
     try {
-      localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+      const response = await fetch(`${API_BASE_URL}/messages/${noteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
     } catch (error) {
-      console.error('Error saving notes:', error);
+      console.error('Error updating message:', error);
+      throw error;
     }
   }
 
-  static addNote(content: string, author: 'partner1' | 'partner2'): Note {
-    const notes = this.getNotes();
-    const newNote: Note = {
-      id: Date.now().toString(),
-      content,
-      author,
-      timestamp: new Date().toISOString(),
-      isRead: false,
-      isFavorite: false
-    };
-    notes.push(newNote);
-    this.saveNotes(notes);
-    return newNote;
-  }
+  static async deleteNote(noteId: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/messages/${noteId}`, {
+        method: 'DELETE',
+      });
 
-  static updateNote(noteId: string, updates: Partial<Note>): void {
-    const notes = this.getNotes();
-    const noteIndex = notes.findIndex(note => note.id === noteId);
-    if (noteIndex >= 0) {
-      notes[noteIndex] = { ...notes[noteIndex], ...updates };
-      this.saveNotes(notes);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error;
     }
   }
 
-  static deleteNote(noteId: string): void {
-    const notes = this.getNotes().filter(note => note.id !== noteId);
-    this.saveNotes(notes);
+  // Analytics data
+  static async getAnalyticsHistory(): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/analytics/history`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching analytics history:', error);
+      return { weekly_history: [] };
+    }
   }
 
-  // Get current week's metrics (Sunday to Saturday)
-  static getCurrentWeekMetrics(): WeeklyMetrics {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const daysFromSunday = dayOfWeek;
-    
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - daysFromSunday);
-    weekStart.setHours(0, 0, 0, 0);
-    
-    const weekStartString = weekStart.toISOString().split('T')[0];
-    
-    // Get all entries for this week
-    const entries = this.getMetricEntries();
-    const weekEntries = entries.filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate >= weekStart && entryDate <= now;
-    });
-    
-    // Calculate totals for the week
-    const sexCount = weekEntries.reduce((sum, entry) => sum + entry.sexCount, 0);
-    const qualityTimeHours = weekEntries.reduce((sum, entry) => sum + entry.qualityTimeHours, 0);
-    const dishesDone = weekEntries.reduce((sum, entry) => sum + entry.dishesDone, 0);
-    const trashTargetHours = weekEntries.reduce((sum, entry) => sum + entry.trashFullHours, 0);
-    const kittyDuties = weekEntries.reduce((sum, entry) => sum + entry.kittyDuties, 0);
-    
-    // Get partner finance changes (mock data for now)
-    const partner1FinanceChange = (Math.random() - 0.5) * 500;
-    const partner2FinanceChange = (Math.random() - 0.5) * 500;
-    
-    return {
-      weekStart: weekStartString,
-      sexCount,
-      qualityTimeHours,
-      dishesDone,
-      trashTargetHours,
-      kittyDuties,
-      partner1FinanceChange: Math.round(partner1FinanceChange * 100) / 100,
-      partner2FinanceChange: Math.round(partner2FinanceChange * 100) / 100
-    };
-  }
-
-  // Get three-way finance data (Sydney, Ben, Investments) from Plaid
+  // Finance data (delegated to PlaidService)
   static async getPartnerFinances(): Promise<PartnerFinances> {
     try {
       const { PlaidService } = await import('./plaidService');
       const result = await PlaidService.getFinanceData();
       console.log('DataService: Got finance data from PlaidService:', result);
       return result;
-          } catch (error) {
-        console.error('ERROR: Failed to fetch real finance data:', error);
-        console.error('Full error details:', error);
-        // Show error state instead of fake data
-        throw new Error(`Finance data unavailable: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    } catch (error) {
+      console.error('ERROR: Failed to fetch real finance data:', error);
+      console.error('Full error details:', error);
+      throw new Error(`Finance data unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
-  // Initialize with sample data if no data exists
+  // Legacy methods for backward compatibility (no longer needed but kept to avoid breaking changes)
   static initializeSampleData(): void {
-    const existingEntries = this.getMetricEntries();
-    if (existingEntries.length === 0) {
-      const sampleEntries: MetricEntry[] = [];
-      const today = new Date();
-      
-      // Create sample data for the last 30 days
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateString = date.toISOString().split('T')[0];
-        
-        sampleEntries.push({
-          date: dateString,
-          sexCount: Math.floor(Math.random() * 3),
-          qualityTimeHours: Math.floor(Math.random() * 5) + 1,
-          dishesDone: Math.random() > 0.3 ? 1 : 0,
-          trashFullHours: Math.floor(Math.random() * 2), // 0-1 times taking out trash per day
-          kittyDuties: Math.random() > 0.2 ? 1 : 0,
-          notes: []
-        });
-      }
-      
-      this.saveMetricEntries(sampleEntries);
-    }
+    // No longer needed - backend handles initialization
+    console.log('Data initialization handled by backend');
+  }
 
-    // Add sample notes if none exist
-    const existingNotes = this.getNotes();
-    if (existingNotes.length === 0) {
-      const sampleNotes: Note[] = [
-        {
-          id: '1',
-          content: 'Great job on keeping up with the dishes this week!',
-          author: 'partner1',
-          timestamp: new Date().toISOString(),
-          isRead: false,
-          isFavorite: false
-        },
-        {
-          id: '2',
-          content: 'Thanks for taking out the trash regularly this week!',
-          author: 'partner2',
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          isRead: true,
-          isFavorite: true
-        }
-      ];
-      this.saveNotes(sampleNotes);
-    }
+  static getMetricEntries(): MetricEntry[] {
+    // Deprecated - use backend APIs instead
+    console.warn('getMetricEntries is deprecated - use backend APIs');
+    return [];
+  }
+
+  static saveMetricEntries(entries: MetricEntry[]): void {
+    // Deprecated - use backend APIs instead
+    console.warn('saveMetricEntries is deprecated - use backend APIs');
+  }
+
+  static getLastNMonthsEntries(months: number): MetricEntry[] {
+    // This should be replaced with analytics history API call
+    console.warn('getLastNMonthsEntries is deprecated - use getAnalyticsHistory');
+    return [];
+  }
+
+  static getCurrentMonthMetrics(): any {
+    // This should be replaced with analytics API
+    console.warn('getCurrentMonthMetrics is deprecated - use analytics APIs');
+    return {
+      month: new Date().toISOString().slice(0, 7),
+      totalSexCount: 0,
+      totalDishesDone: 0,
+      averageTrashFullHours: 0,
+      totalKittyDuties: 0,
+      averageBalance: 0,
+      dishesAdherencePercent: 0
+    };
+  }
+
+  static saveNotes(notes: Note[]): void {
+    // Deprecated - use backend APIs instead
+    console.warn('saveNotes is deprecated - use backend message APIs');
   }
 } 

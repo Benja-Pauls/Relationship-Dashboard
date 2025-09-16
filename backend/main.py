@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import json
 import requests
 from dotenv import load_dotenv
+import pytz
 
 # Load environment variables from .env file (check both current and parent directory)
 load_dotenv()  # Current directory
@@ -36,6 +37,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Timezone setup
+CST = pytz.timezone('US/Central')
 
 # Plaid configuration
 PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID')
@@ -69,30 +73,346 @@ class FinanceData(BaseModel):
     benWeeklyChange: float
     investmentsWeeklyChange: float
 
-# Storage functions
-def load_account_setup():
-    """Load account setup from file"""
-    setup_file = 'account_setup.json'
-    if os.path.exists(setup_file):
-        with open(setup_file, 'r') as f:
-            return json.load(f)
-    return {'access_tokens': [], 'account_categorizations': {}}
+class MetricEntry(BaseModel):
+    date: str
+    sexCount: int = 0
+    qualityTimeHours: int = 0
+    dishesDone: int = 0
+    trashFullHours: int = 0
+    kittyDuties: int = 0
 
-def save_account_setup(data):
-    """Save account setup to file"""
-    setup_file = 'account_setup.json'
-    with open(setup_file, 'w') as f:
-        json.dump(data, f, indent=2)
+class MetricUpdate(BaseModel):
+    metric: str
+    increment: int
+
+class Note(BaseModel):
+    id: Optional[str] = None
+    content: str
+    author: str  # 'partner1' or 'partner2'
+    timestamp: Optional[str] = None
+    isRead: bool = False
+    isFavorite: bool = False
+
+class WeeklyMetrics(BaseModel):
+    weekStart: str
+    sexCount: int = 0
+    qualityTimeHours: int = 0
+    dishesDone: int = 0
+    trashTargetHours: int = 0
+    kittyDuties: int = 0
+
+# Data storage functions
+def load_data_file(filename: str, default_data: dict = None) -> dict:
+    """Load data from JSON file"""
+    if default_data is None:
+        default_data = {}
+    
+    if os.path.exists(filename):
+        try:
+            with open(filename, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            print(f"Error reading {filename}, using default data")
+            return default_data
+    return default_data
+
+def save_data_file(filename: str, data: dict):
+    """Save data to JSON file"""
+    try:
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=2)
+    except IOError as e:
+        print(f"Error saving {filename}: {e}")
+
+def get_current_week_start() -> str:
+    """Get the start of the current week (Monday) in CST"""
+    now = datetime.now(CST)
+    days_since_monday = now.weekday()  # Monday is 0
+    week_start = now - timedelta(days=days_since_monday)
+    week_start = week_start.replace(hour=4, minute=0, second=0, microsecond=0)
+    
+    # If it's before 4am on Monday, use the previous week
+    if now.weekday() == 0 and now.hour < 4:
+        week_start -= timedelta(days=7)
+    
+    return week_start.strftime('%Y-%m-%d')
+
+def get_current_day() -> str:
+    """Get the current day in CST, accounting for 4am reset"""
+    now = datetime.now(CST)
+    
+    # If it's before 4am, use the previous day
+    if now.hour < 4:
+        now -= timedelta(days=1)
+    
+    return now.strftime('%Y-%m-%d')
+
+def get_time_until_reset() -> dict:
+    """Get time until next reset for both daily and weekly"""
+    now = datetime.now(CST)
+    
+    # Next daily reset (4am tomorrow, or 4am today if before 4am)
+    next_daily = now.replace(hour=4, minute=0, second=0, microsecond=0)
+    if now.hour >= 4:
+        next_daily += timedelta(days=1)
+    
+    # Next weekly reset (4am next Monday)
+    days_until_monday = (7 - now.weekday()) % 7
+    if days_until_monday == 0 and now.hour >= 4:  # It's Monday after 4am
+        days_until_monday = 7
+    
+    next_weekly = now + timedelta(days=days_until_monday)
+    next_weekly = next_weekly.replace(hour=4, minute=0, second=0, microsecond=0)
+    
+    daily_seconds = int((next_daily - now).total_seconds())
+    weekly_seconds = int((next_weekly - now).total_seconds())
+    
+    return {
+        'daily_reset_in_seconds': daily_seconds,
+        'weekly_reset_in_seconds': weekly_seconds,
+        'daily_reset_time': next_daily.isoformat(),
+        'weekly_reset_time': next_weekly.isoformat()
+    }
+
+def cleanup_old_messages():
+    """Remove messages older than 24 hours"""
+    messages_data = load_data_file('messages.json', {'messages': []})
+    current_day = get_current_day()
+    
+    # Filter messages to only keep today's
+    messages_data['messages'] = [
+        msg for msg in messages_data['messages'] 
+        if msg.get('timestamp', '').startswith(current_day)
+    ]
+    
+    save_data_file('messages.json', messages_data)
+
+def archive_weekly_data():
+    """Archive current week's data to analytics and reset current metrics"""
+    current_week = get_current_week_start()
+    metrics_data = load_data_file('current_metrics.json', {})
+    analytics_data = load_data_file('analytics_data.json', {'weekly_history': []})
+    
+    # Archive current week if it exists
+    if 'current_week' in metrics_data and metrics_data['current_week']['week_start'] != current_week:
+        analytics_data['weekly_history'].append(metrics_data['current_week'])
+        
+        # Keep only last 12 weeks for analytics
+        analytics_data['weekly_history'] = analytics_data['weekly_history'][-12:]
+        save_data_file('analytics_data.json', analytics_data)
+    
+    # Reset current week data
+    metrics_data['current_week'] = {
+        'week_start': current_week,
+        'daily_entries': {},
+        'weekly_totals': {
+            'sexCount': 0,
+            'qualityTimeHours': 0,
+            'dishesDone': 0,
+            'trashTargetHours': 0,
+            'kittyDuties': 0
+        }
+    }
+    
+    save_data_file('current_metrics.json', metrics_data)
 
 # Load existing setup data
-setup_data = load_account_setup()
+setup_data = load_data_file('account_setup.json', {'access_tokens': [], 'account_categorizations': {}})
 access_tokens: List[str] = setup_data.get('access_tokens', [])
 account_categorizations: Dict[str, str] = setup_data.get('account_categorizations', {})
+
+# Initialize data files on startup
+def initialize_data():
+    """Initialize data files with default structure"""
+    current_week = get_current_week_start()
+    current_day = get_current_day()
+    
+    # Initialize current metrics
+    metrics_data = load_data_file('current_metrics.json', {})
+    if 'current_week' not in metrics_data or metrics_data['current_week']['week_start'] != current_week:
+        archive_weekly_data()
+    
+    # Ensure today's entry exists
+    if 'current_week' in metrics_data:
+        if current_day not in metrics_data['current_week']['daily_entries']:
+            metrics_data['current_week']['daily_entries'][current_day] = {
+                'date': current_day,
+                'sexCount': 0,
+                'qualityTimeHours': 0,
+                'dishesDone': 0,
+                'trashFullHours': 0,
+                'kittyDuties': 0
+            }
+            save_data_file('current_metrics.json', metrics_data)
+    
+    # Initialize messages and clean old ones
+    load_data_file('messages.json', {'messages': []})
+    cleanup_old_messages()
+    
+    # Initialize analytics data
+    load_data_file('analytics_data.json', {'weekly_history': []})
+
+# Initialize on startup
+initialize_data()
 
 @app.get("/")
 async def root():
     return {"message": "Relationship Dashboard API"}
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "plaid_configured": bool(PLAID_CLIENT_ID and PLAID_SECRET)}
+
+@app.get("/api/reset_timers")
+async def get_reset_timers():
+    """Get time until next resets"""
+    return get_time_until_reset()
+
+# Metrics endpoints
+@app.get("/api/metrics/today")
+async def get_todays_metrics():
+    """Get today's metric entry"""
+    current_day = get_current_day()
+    metrics_data = load_data_file('current_metrics.json', {})
+    
+    if 'current_week' not in metrics_data:
+        initialize_data()
+        metrics_data = load_data_file('current_metrics.json', {})
+    
+    daily_entry = metrics_data['current_week']['daily_entries'].get(current_day, {
+        'date': current_day,
+        'sexCount': 0,
+        'qualityTimeHours': 0,
+        'dishesDone': 0,
+        'trashFullHours': 0,
+        'kittyDuties': 0
+    })
+    
+    return daily_entry
+
+@app.get("/api/metrics/week")
+async def get_weekly_metrics():
+    """Get current week's aggregated metrics"""
+    current_week = get_current_week_start()
+    metrics_data = load_data_file('current_metrics.json', {})
+    
+    if 'current_week' not in metrics_data:
+        initialize_data()
+        metrics_data = load_data_file('current_metrics.json', {})
+    
+    weekly_data = metrics_data['current_week']['weekly_totals']
+    weekly_data['weekStart'] = current_week
+    
+    return weekly_data
+
+@app.post("/api/metrics/update")
+async def update_metric(update: MetricUpdate):
+    """Update a specific metric for today"""
+    current_day = get_current_day()
+    current_week = get_current_week_start()
+    
+    metrics_data = load_data_file('current_metrics.json', {})
+    
+    if 'current_week' not in metrics_data or metrics_data['current_week']['week_start'] != current_week:
+        archive_weekly_data()
+        metrics_data = load_data_file('current_metrics.json', {})
+    
+    # Ensure today's entry exists
+    if current_day not in metrics_data['current_week']['daily_entries']:
+        metrics_data['current_week']['daily_entries'][current_day] = {
+            'date': current_day,
+            'sexCount': 0,
+            'qualityTimeHours': 0,
+            'dishesDone': 0,
+            'trashFullHours': 0,
+            'kittyDuties': 0
+        }
+    
+    # Update the metric
+    daily_entry = metrics_data['current_week']['daily_entries'][current_day]
+    if update.metric in daily_entry:
+        old_value = daily_entry[update.metric]
+        new_value = max(0, old_value + update.increment)
+        daily_entry[update.metric] = new_value
+        
+        # Update weekly totals
+        weekly_totals = metrics_data['current_week']['weekly_totals']
+        if update.metric in weekly_totals:
+            weekly_totals[update.metric] += (new_value - old_value)
+            weekly_totals[update.metric] = max(0, weekly_totals[update.metric])
+    
+    save_data_file('current_metrics.json', metrics_data)
+    return daily_entry
+
+@app.get("/api/analytics/history")
+async def get_analytics_history():
+    """Get historical data for analytics"""
+    analytics_data = load_data_file('analytics_data.json', {'weekly_history': []})
+    current_metrics = load_data_file('current_metrics.json', {})
+    
+    # Include current week in history for analytics
+    history = analytics_data['weekly_history'].copy()
+    if 'current_week' in current_metrics:
+        history.append(current_metrics['current_week'])
+    
+    return {'weekly_history': history}
+
+# Messages endpoints
+@app.get("/api/messages")
+async def get_messages():
+    """Get all messages for today"""
+    cleanup_old_messages()
+    messages_data = load_data_file('messages.json', {'messages': []})
+    
+    # Sort by timestamp, newest first
+    messages = sorted(messages_data['messages'], key=lambda x: x.get('timestamp', ''), reverse=True)
+    return {'messages': messages}
+
+@app.post("/api/messages")
+async def create_message(note: Note):
+    """Create a new message"""
+    cleanup_old_messages()
+    messages_data = load_data_file('messages.json', {'messages': []})
+    
+    # Generate ID and timestamp
+    new_message = {
+        'id': str(len(messages_data['messages']) + int(datetime.now().timestamp())),
+        'content': note.content,
+        'author': note.author,
+        'timestamp': datetime.now(CST).isoformat(),
+        'isRead': False,
+        'isFavorite': False
+    }
+    
+    messages_data['messages'].append(new_message)
+    save_data_file('messages.json', messages_data)
+    
+    return new_message
+
+@app.put("/api/messages/{message_id}")
+async def update_message(message_id: str, updates: dict):
+    """Update a message (mark as read, favorite, etc.)"""
+    messages_data = load_data_file('messages.json', {'messages': []})
+    
+    for message in messages_data['messages']:
+        if message['id'] == message_id:
+            message.update(updates)
+            save_data_file('messages.json', messages_data)
+            return message
+    
+    raise HTTPException(status_code=404, detail="Message not found")
+
+@app.delete("/api/messages/{message_id}")
+async def delete_message(message_id: str):
+    """Delete a message"""
+    messages_data = load_data_file('messages.json', {'messages': []})
+    
+    messages_data['messages'] = [msg for msg in messages_data['messages'] if msg['id'] != message_id]
+    save_data_file('messages.json', messages_data)
+    
+    return {"message": "Message deleted"}
+
+# Existing Plaid endpoints (unchanged)
 @app.get("/connect", response_class=HTMLResponse)
 async def connect():
     """One-time bank connection page - visit once per bank, then never again"""
@@ -171,10 +491,9 @@ async def exchange_public_token(data: PublicTokenExchange):
         
         # Store access token and save to file
         access_tokens.append(access_token)
-        save_account_setup({
-            'access_tokens': access_tokens,
-            'account_categorizations': account_categorizations
-        })
+        setup_data['access_tokens'] = access_tokens
+        setup_data['account_categorizations'] = account_categorizations
+        save_data_file('account_setup.json', setup_data)
         
         return {"access_token": access_token, "item_id": response['item_id']}
     
@@ -220,54 +539,10 @@ async def get_accounts():
 async def categorize_account(categorization: AccountCategorization):
     """Categorize an account as belonging to Sydney, Ben, or Investments"""
     account_categorizations[categorization.account_id] = categorization.owner
-    save_account_setup({
-        'access_tokens': access_tokens,
-        'account_categorizations': account_categorizations
-    })
+    setup_data['access_tokens'] = access_tokens
+    setup_data['account_categorizations'] = account_categorizations
+    save_data_file('account_setup.json', setup_data)
     return {"message": f"Account categorized as {categorization.owner}"}
-
-@app.get("/api/finance_data")
-async def get_finance_data():
-    """Get aggregated finance data for the dashboard"""
-    try:
-        # Get all accounts
-        accounts_response = await get_accounts()
-        accounts = accounts_response["accounts"]
-        
-        # Initialize balances
-        sydney_balance = 0.0
-        ben_balance = 0.0
-        investments_balance = 0.0
-        
-        # Aggregate balances by owner
-        for account in accounts:
-            balance = account.get('balance', 0) or 0
-            owner = account.get('owner', 'uncategorized')
-            
-            if owner == 'sydney':
-                sydney_balance += balance
-            elif owner == 'ben':
-                ben_balance += balance
-            elif owner == 'investments':
-                investments_balance += balance
-        
-        # Calculate weekly changes (simplified - you might want to implement transaction analysis)
-        # For now, using mock changes but you could analyze transactions from the past week
-        sydney_weekly_change = await calculate_weekly_change('sydney')
-        ben_weekly_change = await calculate_weekly_change('ben')
-        investments_weekly_change = await calculate_weekly_change('investments')
-        
-        return FinanceData(
-            sydneyBalance=round(sydney_balance, 2),
-            benBalance=round(ben_balance, 2),
-            investmentsBalance=round(investments_balance, 2),
-            sydneyWeeklyChange=round(sydney_weekly_change, 2),
-            benWeeklyChange=round(ben_weekly_change, 2),
-            investmentsWeeklyChange=round(investments_weekly_change, 2)
-        )
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching finance data: {str(e)}")
 
 async def calculate_weekly_change(owner: str) -> float:
     """Calculate weekly spending/income change for an owner"""
@@ -366,63 +641,23 @@ async def get_balances():
             print(f"Error fetching balances for token: {str(e)}")
             continue
     
-    # Calculate weekly changes (simplified)
-    sydney_weekly_change = await calculate_weekly_change('sydney')
-    ben_weekly_change = await calculate_weekly_change('ben')
-    investments_weekly_change = await calculate_weekly_change('investments')
+    # Skip weekly changes calculation to avoid blocking API calls
+    # Since we're not displaying weekly changes, this makes the API much faster
     
     return {
         "sydney": {
             "balance": round(sydney_balance, 2),
-            "weeklyChange": round(sydney_weekly_change, 2)
+            "weeklyChange": 0.0
         },
         "ben": {
             "balance": round(ben_balance, 2),
-            "weeklyChange": round(ben_weekly_change, 2)
+            "weeklyChange": 0.0
         },
         "investments": {
             "balance": round(investments_balance, 2),
-            "weeklyChange": round(investments_weekly_change, 2)
+            "weeklyChange": 0.0
         }
     }
-
-@app.get("/api/accounts")
-async def get_accounts_list():
-    """Get detailed list of all accounts (for debugging/management)"""
-    out = []
-    for access_token in access_tokens:
-        try:
-            accounts_data = {
-                "client_id": PLAID_CLIENT_ID,
-                "secret": PLAID_SECRET,
-                "access_token": access_token
-            }
-            r = requests.post("https://production.plaid.com/accounts/balance/get", 
-                            json=accounts_data, timeout=30)
-            r.raise_for_status()
-            
-            for acct in r.json().get("accounts", []):
-                owner = account_categorizations.get(acct["account_id"], "ben")
-                balance = acct["balances"].get("current", 0) or 0
-                
-                out.append({
-                    "account_id": acct["account_id"],
-                    "name": acct["name"],
-                    "type": acct["type"],
-                    "subtype": acct.get("subtype"),
-                    "balance": balance,
-                    "available": acct["balances"].get("available"),
-                    "owner": owner
-                })
-        except Exception as e:
-            print(f"Error fetching accounts for token: {str(e)}")
-            continue
-    
-    return {"accounts": out}
-
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy", "plaid_configured": bool(PLAID_CLIENT_ID and PLAID_SECRET)}
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, AccountBalance, Person, TrendingFlat, ExpandMore, ExpandLess } from '@mui/icons-material';
+import { TrendingUp, TrendingDown, AccountBalance, TrendingFlat, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { FINANCE_COLORS } from '../types/metrics';
 import RadialCenterIcon from './RadialCenterIcon';
 import { PlaidService } from '../services/plaidService';
@@ -32,23 +32,6 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
-  };
-
-  const formatChange = (change: number) => {
-    const formatted = formatCurrency(Math.abs(change));
-    return change >= 0 ? `+${formatted}` : `-${formatted}`;
-  };
-
-  const getChangeIcon = (change: number) => {
-    if (change > 0) return <TrendingUp sx={{ fontSize: 14 }} className="text-green-400" />;
-    if (change < 0) return <TrendingDown sx={{ fontSize: 14 }} className="text-red-400" />;
-    return <TrendingFlat sx={{ fontSize: 14 }} className="text-gray-400" />;
-  };
-
-  const getChangeColor = (change: number) => {
-    if (change > 0) return 'text-green-400';
-    if (change < 0) return 'text-red-400';
-    return 'text-gray-400';
   };
 
   type AccountItem = {
@@ -142,20 +125,20 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
   return (
     <div className="radial-wheel-dark group relative h-full flex flex-col">
       {/* Header */}
-      <div className="text-center mb-4">
-        <h3 className="font-bold text-white text-lg mb-1">Finance Snapshot</h3>
-        <p className="text-sm text-gray-400">
+      <div className="text-center mb-3">
+        <h3 className="font-bold text-white text-base mb-1">Finance Snapshot</h3>
+        <p className="text-xs text-gray-400">
           Combined Accounts
         </p>
       </div>
 
-      {/* Three-Segment Radial Wheel */}
-      <div className="relative mb-4 flex justify-center flex-1">
+      {/* Compact Three-Segment Radial Wheel */}
+      <div className="relative mb-3 flex justify-center flex-1">
         <svg 
           className="transform -rotate-90 transition-all duration-500"
-          width={200} 
-          height={200}
-          viewBox="0 0 200 200"
+          width={160} 
+          height={160}
+          viewBox="0 0 160 160"
           style={{
             filter: 'drop-shadow(0 0 15px rgba(16, 185, 129, 0.4))'
           }}
@@ -188,8 +171,8 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           
           {/* Background circle */}
           <circle
-            cx={100}
-            cy={100}
+            cx={80}
+            cy={80}
             r={normalizedRadius}
             fill="none"
             stroke="url(#bg-gradient-finance)"
@@ -199,8 +182,8 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           
           {/* Sydney arc */}
           <circle
-            cx={100}
-            cy={100}
+            cx={80}
+            cy={80}
             r={normalizedRadius}
             fill="none"
             stroke="url(#sydney-gradient-finance)"
@@ -213,8 +196,8 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           
           {/* Ben arc */}
           <circle
-            cx={100}
-            cy={100}
+            cx={80}
+            cy={80}
             r={normalizedRadius}
             fill="none"
             stroke="url(#ben-gradient-finance)"
@@ -227,8 +210,8 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
 
           {/* Investments arc */}
           <circle
-            cx={100}
-            cy={100}
+            cx={80}
+            cy={80}
             r={normalizedRadius}
             fill="none"
             stroke="url(#investments-gradient-finance)"
@@ -242,14 +225,14 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           <RadialCenterIcon
             Icon={AccountBalance}
             color="#10b981"
-            size={48}
+            size={36}
           />
         </svg>
       </div>
 
-      {/* Total Balance Below Ring */}
-      <div className="text-center mb-4">
-        <div className="text-3xl font-bold mb-2">
+      {/* Compact Total Balance */}
+      <div className="text-center mb-3">
+        <div className="text-2xl font-bold mb-1">
           <span 
             className="neon-text"
             style={{ 
@@ -260,16 +243,16 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
             {formatCurrency(totalBalance)}
           </span>
         </div>
-        <div className="text-sm text-gray-300 font-medium">
+        <div className="text-xs text-gray-300 font-medium">
           Combined Balance
         </div>
       </div>
 
-      {/* Enhanced Three Account Rows */}
-      <div className="space-y-2 mb-3">
+      {/* Compact Account Rows */}
+      <div className="space-y-1 mb-2">
         {/* Sydney Row */}
         <div
-          className="flex items-center justify-between p-3 rounded-xl border transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+          className="flex items-center justify-between p-2 rounded-lg border transition-all duration-300 cursor-pointer hover:scale-[1.01]"
           style={{
             background: `linear-gradient(135deg, ${FINANCE_COLORS.sydney.primary}15, ${FINANCE_COLORS.sydney.primary}08)`,
             borderColor: `${FINANCE_COLORS.sydney.primary}40`,
@@ -278,42 +261,41 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           onClick={() => handleToggle('sydney')}
           role="button"
         >
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div 
-              className="w-4 h-4 rounded-full shadow-lg"
+              className="w-3 h-3 rounded-full shadow-lg"
               style={{ 
                 backgroundColor: FINANCE_COLORS.sydney.primary,
                 boxShadow: `0 0 8px ${FINANCE_COLORS.sydney.primary}60`
               }}
             />
-            <span className="text-sm font-bold text-white">{FINANCE_COLORS.sydney.name}</span>
+            <span className="text-xs font-bold text-white">{FINANCE_COLORS.sydney.name}</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-bold text-white">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs font-bold text-white">
               {formatCurrency(sydneyBalance)}
             </span>
             {expandedOwner === 'sydney' ? (
-              <ExpandLess sx={{ fontSize: 16 }} className="text-gray-300" />
+              <ExpandLess sx={{ fontSize: 14 }} className="text-gray-300" />
             ) : (
-              <ExpandMore sx={{ fontSize: 16 }} className="text-gray-300" />
+              <ExpandMore sx={{ fontSize: 14 }} className="text-gray-300" />
             )}
           </div>
         </div>
         {expandedOwner === 'sydney' && (
-          <div className="rounded-xl border p-3 ml-4" style={{ borderColor: `${FINANCE_COLORS.sydney.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.sydney.primary}08, transparent)` }}>
+          <div className="rounded-lg border p-2 ml-3" style={{ borderColor: `${FINANCE_COLORS.sydney.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.sydney.primary}08, transparent)` }}>
             {accountsLoading && <div className="text-xs text-gray-400">Loading accounts…</div>}
             {accountsError && <div className="text-xs text-red-400">{accountsError}</div>}
             {!accountsLoading && !accountsError && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {accountsByOwner('sydney').length === 0 && (
                   <div className="text-xs text-gray-400">No accounts categorized to Sydney.</div>
                 )}
                 {accountsByOwner('sydney').map(acc => (
-                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200 p-2 rounded-lg bg-gray-800/30">
-                    <div className="flex items-center space-x-2">
+                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200 p-1 rounded bg-gray-800/30">
+                    <div className="flex items-center space-x-1">
                       <span className="text-gray-200 font-medium">{acc.name}</span>
-                      <span className="text-gray-500">{acc.subtype || acc.type}</span>
-                      <span className="text-gray-500">({acc.owner && (acc.owner.charAt(0).toUpperCase() + acc.owner.slice(1))})</span>
+                      <span className="text-gray-500 text-xs">{acc.subtype || acc.type}</span>
                     </div>
                     <span className="font-bold">{formatCurrency(acc.balance || 0)}</span>
                   </div>
@@ -325,7 +307,7 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
 
         {/* Ben Row */}
         <div
-          className="flex items-center justify-between p-3 rounded-xl border transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+          className="flex items-center justify-between p-2 rounded-lg border transition-all duration-300 cursor-pointer hover:scale-[1.01]"
           style={{
             background: `linear-gradient(135deg, ${FINANCE_COLORS.ben.primary}15, ${FINANCE_COLORS.ben.primary}08)`,
             borderColor: `${FINANCE_COLORS.ben.primary}40`,
@@ -334,42 +316,41 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           onClick={() => handleToggle('ben')}
           role="button"
         >
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div 
-              className="w-4 h-4 rounded-full shadow-lg"
+              className="w-3 h-3 rounded-full shadow-lg"
               style={{ 
                 backgroundColor: FINANCE_COLORS.ben.primary,
                 boxShadow: `0 0 8px ${FINANCE_COLORS.ben.primary}60`
               }}
             />
-            <span className="text-sm font-bold text-white">{FINANCE_COLORS.ben.name}</span>
+            <span className="text-xs font-bold text-white">{FINANCE_COLORS.ben.name}</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-bold text-white">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs font-bold text-white">
               {formatCurrency(benBalance)}
             </span>
             {expandedOwner === 'ben' ? (
-              <ExpandLess sx={{ fontSize: 16 }} className="text-gray-300" />
+              <ExpandLess sx={{ fontSize: 14 }} className="text-gray-300" />
             ) : (
-              <ExpandMore sx={{ fontSize: 16 }} className="text-gray-300" />
+              <ExpandMore sx={{ fontSize: 14 }} className="text-gray-300" />
             )}
           </div>
         </div>
         {expandedOwner === 'ben' && (
-          <div className="rounded-xl border p-3 ml-4" style={{ borderColor: `${FINANCE_COLORS.ben.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.ben.primary}08, transparent)` }}>
+          <div className="rounded-lg border p-2 ml-3" style={{ borderColor: `${FINANCE_COLORS.ben.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.ben.primary}08, transparent)` }}>
             {accountsLoading && <div className="text-xs text-gray-400">Loading accounts…</div>}
             {accountsError && <div className="text-xs text-red-400">{accountsError}</div>}
             {!accountsLoading && !accountsError && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {accountsByOwner('ben').length === 0 && (
                   <div className="text-xs text-gray-400">No accounts categorized to Ben.</div>
                 )}
                 {accountsByOwner('ben').map(acc => (
-                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200 p-2 rounded-lg bg-gray-800/30">
-                    <div className="flex items-center space-x-2">
+                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200 p-1 rounded bg-gray-800/30">
+                    <div className="flex items-center space-x-1">
                       <span className="text-gray-200 font-medium">{acc.name}</span>
-                      <span className="text-gray-500">{acc.subtype || acc.type}</span>
-                      <span className="text-gray-500">({acc.owner && (acc.owner.charAt(0).toUpperCase() + acc.owner.slice(1))})</span>
+                      <span className="text-gray-500 text-xs">{acc.subtype || acc.type}</span>
                     </div>
                     <span className="font-bold">{formatCurrency(acc.balance || 0)}</span>
                   </div>
@@ -381,7 +362,7 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
 
         {/* Investments Row */}
         <div
-          className="flex items-center justify-between p-3 rounded-xl border transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+          className="flex items-center justify-between p-2 rounded-lg border transition-all duration-300 cursor-pointer hover:scale-[1.01]"
           style={{
             background: `linear-gradient(135deg, ${FINANCE_COLORS.investments.primary}15, ${FINANCE_COLORS.investments.primary}08)`,
             borderColor: `${FINANCE_COLORS.investments.primary}40`,
@@ -390,42 +371,41 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           onClick={() => handleToggle('investments')}
           role="button"
         >
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div 
-              className="w-4 h-4 rounded-full shadow-lg"
+              className="w-3 h-3 rounded-full shadow-lg"
               style={{ 
                 backgroundColor: FINANCE_COLORS.investments.primary,
                 boxShadow: `0 0 8px ${FINANCE_COLORS.investments.primary}60`
               }}
             />
-            <span className="text-sm font-bold text-white">{FINANCE_COLORS.investments.name}</span>
+            <span className="text-xs font-bold text-white">{FINANCE_COLORS.investments.name}</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-bold text-white">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs font-bold text-white">
               {formatCurrency(investmentsBalance)}
             </span>
             {expandedOwner === 'investments' ? (
-              <ExpandLess sx={{ fontSize: 16 }} className="text-gray-300" />
+              <ExpandLess sx={{ fontSize: 14 }} className="text-gray-300" />
             ) : (
-              <ExpandMore sx={{ fontSize: 16 }} className="text-gray-300" />
+              <ExpandMore sx={{ fontSize: 14 }} className="text-gray-300" />
             )}
           </div>
         </div>
         {expandedOwner === 'investments' && (
-          <div className="rounded-xl border p-3 ml-4" style={{ borderColor: `${FINANCE_COLORS.investments.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.investments.primary}08, transparent)` }}>
+          <div className="rounded-lg border p-2 ml-3" style={{ borderColor: `${FINANCE_COLORS.investments.primary}30`, background: `linear-gradient(135deg, ${FINANCE_COLORS.investments.primary}08, transparent)` }}>
             {accountsLoading && <div className="text-xs text-gray-400">Loading accounts…</div>}
             {accountsError && <div className="text-xs text-red-400">{accountsError}</div>}
             {!accountsLoading && !accountsError && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {accountsByOwner('investments').length === 0 && (
                   <div className="text-xs text-gray-400">No accounts categorized to Investments.</div>
                 )}
                 {accountsByOwner('investments').map(acc => (
-                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200 p-2 rounded-lg bg-gray-800/30">
-                    <div className="flex items-center space-x-2">
+                  <div key={acc.account_id} className="flex items-center justify-between text-xs text-gray-200 p-1 rounded bg-gray-800/30">
+                    <div className="flex items-center space-x-1">
                       <span className="text-gray-200 font-medium">{acc.name}</span>
-                      <span className="text-gray-500">{acc.subtype || acc.type}</span>
-                      <span className="text-gray-500">({acc.owner && (acc.owner.charAt(0).toUpperCase() + acc.owner.slice(1))})</span>
+                      <span className="text-gray-500 text-xs">{acc.subtype || acc.type}</span>
                     </div>
                     <span className="font-bold">{formatCurrency(acc.balance || 0)}</span>
                   </div>
@@ -436,9 +416,9 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
         )}
       </div>
 
-      {/* Enhanced Summary Footer */}
+      {/* Compact Summary Footer */}
       <div 
-        className="text-center py-3 px-4 rounded-xl text-xs border"
+        className="text-center py-2 px-3 rounded-lg text-xs border"
         style={{
           background: 'linear-gradient(135deg, #05966915, #10b98115)',
           border: '1px solid #10b98130',
@@ -446,7 +426,7 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
         }}
       >
         <div className="flex items-center justify-center space-x-2">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           <span className="text-gray-300 font-medium">Real-time via Plaid</span>
         </div>
       </div>

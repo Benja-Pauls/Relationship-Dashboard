@@ -14,35 +14,58 @@ const NotesPage: React.FC = () => {
     loadNotes();
   }, []);
 
-  const loadNotes = () => {
-    const loadedNotes = DataService.getNotes();
-    // Sort notes by timestamp, newest first
-    setNotes(loadedNotes.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-  };
-
-  const handleAddNote = () => {
-    if (newNoteContent.trim()) {
-      DataService.addNote(newNoteContent.trim(), selectedAuthor);
-      setNewNoteContent('');
-      setShowAddForm(false);
-      loadNotes();
+  const loadNotes = async () => {
+    try {
+      const loadedNotes = await DataService.getNotes();
+      // Sort notes by timestamp, newest first
+      setNotes(loadedNotes.sort((a: Note, b: Note) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    } catch (error) {
+      console.error('Error loading notes:', error);
+      setNotes([]);
     }
   };
 
-  const handleToggleFavorite = (noteId: string, currentFavorite: boolean) => {
-    DataService.updateNote(noteId, { isFavorite: !currentFavorite });
-    loadNotes();
+  const handleAddNote = async () => {
+    if (newNoteContent.trim()) {
+      try {
+        await DataService.addNote(newNoteContent.trim(), selectedAuthor);
+        setNewNoteContent('');
+        setShowAddForm(false);
+        await loadNotes();
+      } catch (error) {
+        console.error('Error adding note:', error);
+        alert('Failed to add note. Please try again.');
+      }
+    }
   };
 
-  const handleMarkRead = (noteId: string) => {
-    DataService.updateNote(noteId, { isRead: true });
-    loadNotes();
+  const handleToggleFavorite = async (noteId: string, currentFavorite: boolean) => {
+    try {
+      await DataService.updateNote(noteId, { isFavorite: !currentFavorite });
+      await loadNotes();
+    } catch (error) {
+      console.error('Error updating note:', error);
+    }
   };
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleMarkRead = async (noteId: string) => {
+    try {
+      await DataService.updateNote(noteId, { isRead: true });
+      await loadNotes();
+    } catch (error) {
+      console.error('Error marking note as read:', error);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
-      DataService.deleteNote(noteId);
-      loadNotes();
+      try {
+        await DataService.deleteNote(noteId);
+        await loadNotes();
+      } catch (error) {
+        console.error('Error deleting note:', error);
+        alert('Failed to delete note. Please try again.');
+      }
     }
   };
 

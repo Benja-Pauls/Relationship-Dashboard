@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Favorite, Speed, AutoAwesome, Add, Message, Person } from '@mui/icons-material';
+import { Favorite, Add, Message, Schedule } from '@mui/icons-material';
 import LoveComposite from './LoveComposite';
 import DualFinanceWheel from './DualFinanceWheel';
 import ChoresComposite from './ChoresComposite';
 import { DataService } from '../services/dataService';
-import { PlaidService } from '../services/plaidService';
 import { MetricEntry, WeeklyMetrics, PartnerFinances, METRIC_CONFIGS, DARK_THEME, Note } from '../types/metrics';
 
 const Dashboard: React.FC = () => {
@@ -15,27 +14,68 @@ const Dashboard: React.FC = () => {
   const [showAddMessage, setShowAddMessage] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [selectedSender, setSelectedSender] = useState<'partner1' | 'partner2'>('partner1');
+  const [resetTimers, setResetTimers] = useState<{ daily_reset_in_seconds: number; weekly_reset_in_seconds: number } | null>(null);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    DataService.initializeSampleData();
-    PlaidService.initializePlaidLink();
     loadData();
     loadMessages();
+    loadResetTimers();
+    
+    // Refresh data every 30 seconds
+    const interval = setInterval(() => {
+      loadResetTimers();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  const loadMessages = () => {
-    const loadedNotes = DataService.getNotes();
-    // Show only recent messages (last 5) and sort by newest first
-    setNotes(loadedNotes.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5));
+  const loadMessages = async () => {
+    try {
+      const loadedNotes = await DataService.getNotes();
+      // Show only recent messages (last 5) and sort by newest first
+      setNotes(loadedNotes.slice(0, 5));
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      setNotes([]);
+    }
   };
 
-  const handleAddMessage = () => {
+  const toggleMessageExpansion = (messageId: string) => {
+    const newExpanded = new Set(expandedMessages);
+    if (newExpanded.has(messageId)) {
+      newExpanded.delete(messageId);
+    } else {
+      newExpanded.add(messageId);
+    }
+    setExpandedMessages(newExpanded);
+  };
+
+  const isMessageExpanded = (messageId: string) => expandedMessages.has(messageId);
+
+  const shouldTruncateMessage = (content: string) => content.length > 15;
+
+  const loadResetTimers = async () => {
+    try {
+      const timers = await DataService.getResetTimers();
+      setResetTimers(timers);
+    } catch (error) {
+      console.error('Error loading reset timers:', error);
+    }
+  };
+
+  const handleAddMessage = async () => {
     if (newMessage.trim()) {
-      DataService.addNote(newMessage.trim(), selectedSender);
-      setNewMessage('');
-      setShowAddMessage(false);
-      loadMessages();
+      try {
+        await DataService.addNote(newMessage.trim(), selectedSender);
+        setNewMessage('');
+        setShowAddMessage(false);
+        await loadMessages();
+      } catch (error) {
+        console.error('Error adding message:', error);
+        alert('Failed to send message. Please try again.');
+      }
     }
   };
 
@@ -49,6 +89,19 @@ const Dashboard: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const formatTimeUntilReset = (seconds: number): string => {
+    if (seconds <= 0) return 'Resetting...';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  };
+
   const getSenderColor = (author: 'partner1' | 'partner2') => {
     return author === 'partner1' ? DARK_THEME.neon.orange : DARK_THEME.neon.purple;
   };
@@ -60,8 +113,10 @@ const Dashboard: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const entry = DataService.getTodaysEntry();
-      const weekly = DataService.getCurrentWeekMetrics();
+      const [entry, weekly] = await Promise.all([
+        DataService.getTodaysEntry(),
+        DataService.getCurrentWeekMetrics()
+      ]);
       
       setTodaysEntry(entry);
       setWeeklyMetrics(weekly);
@@ -81,13 +136,18 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleMetricUpdate = (metric: keyof Pick<MetricEntry, 'sexCount' | 'qualityTimeHours' | 'dishesDone' | 'trashFullHours' | 'kittyDuties'>, increment: number) => {
-    const updatedEntry = DataService.updateTodaysMetric(metric, increment);
-    setTodaysEntry(updatedEntry);
-    
-    // Refresh weekly metrics
-    const weekly = DataService.getCurrentWeekMetrics();
-    setWeeklyMetrics(weekly);
+  const handleMetricUpdate = async (metric: keyof Pick<MetricEntry, 'sexCount' | 'qualityTimeHours' | 'dishesDone' | 'trashFullHours' | 'kittyDuties'>, increment: number) => {
+    try {
+      const updatedEntry = await DataService.updateTodaysMetric(metric, increment);
+      setTodaysEntry(updatedEntry);
+      
+      // Refresh weekly metrics
+      const weekly = await DataService.getCurrentWeekMetrics();
+      setWeeklyMetrics(weekly);
+    } catch (error) {
+      console.error('Error updating metric:', error);
+      alert('Failed to update metric. Please try again.');
+    }
   };
 
   if (isLoading) {
@@ -106,6 +166,12 @@ const Dashboard: React.FC = () => {
       <div className="h-full flex items-center justify-center bg-black text-white">
         <div className="text-center">
           <p className="text-red-400">Error loading dashboard data</p>
+          <button 
+            onClick={loadData}
+            className="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -113,225 +179,223 @@ const Dashboard: React.FC = () => {
 
   // Calculate overall progress for header
   const configs = METRIC_CONFIGS;
-     const totalProgress = configs.reduce((sum, config) => {
-     const weeklyValue = weeklyMetrics[config.key as keyof WeeklyMetrics] as number;
-     const progress = config.goalType === 'higher' 
-       ? Math.min((weeklyValue / config.weeklyGoal) * 100, 100)
-       : config.weeklyGoal > 0 
-         ? Math.max(100 - ((weeklyValue / config.weeklyGoal) * 100), 0)
-         : 100;
-     return sum + progress;
-   }, 0) / configs.length;
+  const totalProgress = configs.reduce((sum, config) => {
+    const weeklyValue = weeklyMetrics[config.key as keyof WeeklyMetrics] as number;
+    const progress = config.goalType === 'higher' 
+      ? Math.min((weeklyValue / config.weeklyGoal) * 100, 100)
+      : config.weeklyGoal > 0 
+        ? Math.max(100 - ((weeklyValue / config.weeklyGoal) * 100), 0)
+        : 100;
+    return sum + (isNaN(progress) ? 0 : progress);
+  }, 0) / configs.length;
 
   const getProgressColor = (progress: number) => {
+    if (isNaN(progress) || progress < 0) return DARK_THEME.neon.pink;
     if (progress >= 80) return DARK_THEME.neon.green;
     if (progress >= 60) return DARK_THEME.neon.cyan;
     if (progress >= 40) return DARK_THEME.neon.yellow;
     return DARK_THEME.neon.pink;
   };
 
+  const safeProgress = isNaN(totalProgress) ? 0 : Math.round(totalProgress);
+
   return (
     <div className="h-full flex flex-col bg-black text-white">
-      {/* Dynamic Header */}
+      {/* Enhanced Header with Messages */}
       <div 
-        className="flex-shrink-0 px-6 py-5 border-b"
+        className="flex-shrink-0 px-6 py-4 border-b"
         style={{
           background: 'rgba(255, 255, 255, 0.08)',
           borderBottomColor: 'rgba(255, 255, 255, 0.15)'
         }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-4">
             <div 
-              className="p-4 rounded-2xl"
+              className="p-3 rounded-2xl"
               style={{
                 background: `linear-gradient(135deg, ${getProgressColor(totalProgress)}, ${getProgressColor(totalProgress)}80)`,
-                boxShadow: `0 0 25px ${getProgressColor(totalProgress)}50`
+                boxShadow: `0 0 20px ${getProgressColor(totalProgress)}50`
               }}
             >
-              <Favorite sx={{ fontSize: 28, color: 'white' }} />
+              <Favorite sx={{ fontSize: 24, color: 'white' }} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold mb-1">Relationship Dashboard</h1>
+              <h1 className="text-xl font-bold mb-1">Relationship Dashboard</h1>
               <p className="text-sm text-gray-300">
-                Weekly Progress: <span className="font-bold" style={{ color: getProgressColor(totalProgress) }}>{Math.round(totalProgress)}%</span>
+                Weekly Progress: <span className="font-bold" style={{ color: getProgressColor(totalProgress) }}>{safeProgress}%</span>
               </p>
             </div>
           </div>
           
-          {/* Enhanced Progress Bar */}
-          <div className="flex items-center space-x-6">
-            <div className="text-right">
-              <div className="text-lg font-bold" style={{ color: getProgressColor(totalProgress) }}>
-                {Math.round(totalProgress)}%
-              </div>
-              <div className="text-xs text-gray-400">Weekly Goal</div>
+          {/* Messages Section in Header */}
+          <div className="flex items-center space-x-4">
+            {/* Recent Messages Display */}
+            <div className="flex items-center space-x-1 max-w-2xl">
+              {notes.length > 0 && (
+                <div className="flex items-center space-x-1">
+                  {notes.slice(0, 5).map((note) => {
+                    const isExpanded = isMessageExpanded(note.id!);
+                    const shouldTruncate = shouldTruncateMessage(note.content);
+                    const displayContent = isExpanded || !shouldTruncate 
+                      ? note.content 
+                      : note.content.substring(0, 15) + '...';
+                      
+                    return (
+                      <div 
+                        key={note.id}
+                        className={`relative px-2 py-1 rounded text-xs transition-all duration-200 cursor-pointer hover:scale-105 ${
+                          isExpanded ? 'max-w-48' : 'max-w-24'
+                        } ${shouldTruncate ? 'hover:shadow-lg' : ''}`}
+                        style={{
+                          background: `linear-gradient(135deg, ${getSenderColor(note.author)}25, ${getSenderColor(note.author)}15)`,
+                          border: `1px solid ${getSenderColor(note.author)}50`,
+                          boxShadow: isExpanded ? `0 2px 8px ${getSenderColor(note.author)}30` : 'none'
+                        }}
+                        title={`${getSenderName(note.author)}: ${note.content}`}
+                        onClick={() => shouldTruncate ? toggleMessageExpansion(note.id!) : undefined}
+                      >
+                        <div 
+                          className="absolute -top-0.5 -left-0.5 w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: getSenderColor(note.author) }}
+                        />
+                        <span className="text-gray-100 text-xs font-medium">
+                          {displayContent}
+                        </span>
+                        {shouldTruncate && !isExpanded && (
+                          <span className="text-gray-400 text-xs ml-1">•••</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {notes.length > 5 && (
+                    <div className="text-xs text-gray-400 px-2">
+                      +{notes.length - 5} more
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Add Message Button */}
+              <button
+                onClick={() => setShowAddMessage(!showAddMessage)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 ml-2"
+                style={{
+                  background: `linear-gradient(135deg, ${DARK_THEME.neon.purple}, ${DARK_THEME.neon.pink})`,
+                  boxShadow: `0 0 10px ${DARK_THEME.neon.purple}40`
+                }}
+                title="Add message"
+              >
+                <Add sx={{ fontSize: 14, color: 'white' }} />
+              </button>
             </div>
-            <div className="w-56 bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
+
+            {/* Reset Timers */}
+            {resetTimers && (
+              <div className="text-right text-xs">
+                <div className="flex items-center space-x-1 mb-1">
+                  <Schedule sx={{ fontSize: 10 }} className="text-gray-400" />
+                  <span className="text-gray-400">Weekly: {formatTimeUntilReset(resetTimers.weekly_reset_in_seconds)}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Schedule sx={{ fontSize: 10 }} className="text-gray-400" />
+                  <span className="text-gray-400">Daily: {formatTimeUntilReset(resetTimers.daily_reset_in_seconds)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Progress Bar Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-400">Weekly Goal:</span>
+            <div className="w-48 bg-gray-800 rounded-full h-2 overflow-hidden border border-gray-700">
               <div 
-                className="h-3 rounded-full transition-all duration-1000 ease-out"
+                className="h-2 rounded-full transition-all duration-1000 ease-out"
                 style={{ 
-                  width: `${Math.min(totalProgress, 100)}%`,
+                  width: `${Math.min(safeProgress, 100)}%`,
                   background: `linear-gradient(90deg, ${getProgressColor(totalProgress)}, ${getProgressColor(totalProgress)}80)`,
-                  boxShadow: `0 0 15px ${getProgressColor(totalProgress)}60`
+                  boxShadow: `0 0 10px ${getProgressColor(totalProgress)}60`
                 }}
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-xs text-gray-400 font-medium">Live</span>
-            </div>
+            <span className="text-sm font-bold" style={{ color: getProgressColor(totalProgress) }}>
+              {safeProgress}%
+            </span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-xs text-gray-400 font-medium">Live</span>
           </div>
         </div>
+
+        {/* Message Creation Form */}
+        {showAddMessage && (
+          <div className="mt-3 p-3 rounded-xl bg-gray-800/60 border border-gray-600/50">
+            <div className="flex items-center space-x-3 mb-2">
+              <span className="text-xs text-gray-300">From:</span>
+              <button
+                onClick={() => setSelectedSender('partner1')}
+                className={`w-4 h-4 rounded-full transition-all ${selectedSender === 'partner1' ? 'ring-2 ring-orange-400 scale-110' : ''}`}
+                style={{ backgroundColor: DARK_THEME.neon.orange }}
+              />
+              <button
+                onClick={() => setSelectedSender('partner2')}
+                className={`w-4 h-4 rounded-full transition-all ${selectedSender === 'partner2' ? 'ring-2 ring-purple-400 scale-110' : ''}`}
+                style={{ backgroundColor: DARK_THEME.neon.purple }}
+              />
+              <span className="text-xs text-gray-400">{getSenderName(selectedSender)}</span>
+            </div>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Quick message..."
+                className="flex-1 p-2 bg-gray-700/80 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                onKeyPress={(e) => e.key === 'Enter' && handleAddMessage()}
+              />
+              <button
+                onClick={handleAddMessage}
+                disabled={!newMessage.trim()}
+                className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-all"
+                style={{
+                  background: !newMessage.trim() ? '#666' : `linear-gradient(135deg, ${getSenderColor(selectedSender)}, ${getSenderColor(selectedSender)}80)`
+                }}
+              >
+                Send
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddMessage(false);
+                  setNewMessage('');
+                }}
+                className="px-3 py-2 rounded-lg text-sm bg-gray-600 hover:bg-gray-500 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6 min-h-0">
-        <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Love & Messages */}
-          <div className="flex flex-col gap-6 min-h-0">
-            <div className="flex-1">
-              <LoveComposite
-                loveSparksValue={todaysEntry.sexCount}
-                loveSparksGoal={METRIC_CONFIGS.find(c => c.key === 'sexCount')?.weeklyGoal || 2}
-                qualityTimeValue={todaysEntry.qualityTimeHours}
-                qualityTimeGoal={METRIC_CONFIGS.find(c => c.key === 'qualityTimeHours')?.weeklyGoal || 10}
-                onLoveSparksIncrement={() => handleMetricUpdate('sexCount', 1)}
-                onLoveSparksDecrement={() => handleMetricUpdate('sexCount', -1)}
-                onQualityTimeIncrement={() => handleMetricUpdate('qualityTimeHours', 1)}
-                onQualityTimeDecrement={() => handleMetricUpdate('qualityTimeHours', -1)}
-              />
-            </div>
-            
-            {/* Enhanced Messages Post-it Board */}
-            <div className="radial-wheel-dark p-5 max-h-96 border-2 border-purple-500/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div 
-                    className="p-2 rounded-xl"
-                    style={{
-                      background: `linear-gradient(135deg, ${DARK_THEME.neon.purple}, ${DARK_THEME.neon.pink})`,
-                      boxShadow: `0 0 15px ${DARK_THEME.neon.purple}40`
-                    }}
-                  >
-                    <Message sx={{ fontSize: 20, color: 'white' }} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">Daily Messages</h3>
-                    <p className="text-xs text-gray-400">Quick notes & love</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowAddMessage(!showAddMessage)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                  style={{
-                    background: `linear-gradient(135deg, ${DARK_THEME.neon.purple}, ${DARK_THEME.neon.pink})`,
-                    boxShadow: `0 0 15px ${DARK_THEME.neon.purple}40`
-                  }}
-                >
-                  <Add sx={{ fontSize: 16, color: 'white' }} />
-                </button>
-              </div>
-
-              {/* Enhanced Add Message Form */}
-              {showAddMessage && (
-                <div className="mb-4 p-4 rounded-xl bg-gray-800/60 border border-gray-600/50 backdrop-blur-sm">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <span className="text-xs text-gray-300 font-medium">From:</span>
-                    <button
-                      onClick={() => setSelectedSender('partner1')}
-                      className={`w-5 h-5 rounded-full transition-all duration-200 ${selectedSender === 'partner1' ? 'ring-2 ring-orange-400 scale-110' : 'hover:scale-105'}`}
-                      style={{ backgroundColor: DARK_THEME.neon.orange, boxShadow: `0 0 10px ${DARK_THEME.neon.orange}60` }}
-                    />
-                    <button
-                      onClick={() => setSelectedSender('partner2')}
-                      className={`w-5 h-5 rounded-full transition-all duration-200 ${selectedSender === 'partner2' ? 'ring-2 ring-purple-400 scale-110' : 'hover:scale-105'}`}
-                      style={{ backgroundColor: DARK_THEME.neon.purple, boxShadow: `0 0 10px ${DARK_THEME.neon.purple}60` }}
-                    />
-                    <span className="text-xs text-gray-400">{getSenderName(selectedSender)}</span>
-                  </div>
-                  <textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Write a quick love note..."
-                    className="w-full p-3 bg-gray-700/80 border border-gray-600 rounded-xl resize-none h-20 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  />
-                  <div className="flex space-x-2 mt-3">
-                    <button
-                      onClick={handleAddMessage}
-                      disabled={!newMessage.trim()}
-                      className="flex-1 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                      style={{
-                        background: !newMessage.trim() ? '#666' : `linear-gradient(135deg, ${getSenderColor(selectedSender)}, ${getSenderColor(selectedSender)}80)`,
-                        boxShadow: newMessage.trim() ? `0 4px 12px ${getSenderColor(selectedSender)}40` : 'none'
-                      }}
-                    >
-                      Send Message
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAddMessage(false);
-                        setNewMessage('');
-                      }}
-                      className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-600 hover:bg-gray-500 transition-all duration-200"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Enhanced Messages List */}
-              <div className="space-y-3 overflow-y-auto max-h-56">
-                {notes.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div 
-                      className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                      style={{ background: `linear-gradient(135deg, ${DARK_THEME.neon.purple}20, ${DARK_THEME.neon.pink}20)` }}
-                    >
-                      <Message sx={{ fontSize: 32, color: DARK_THEME.neon.purple }} />
-                    </div>
-                    <p className="text-sm text-gray-400 font-medium">No messages yet</p>
-                    <p className="text-xs text-gray-500 mt-1">Start your daily conversation!</p>
-                  </div>
-                ) : (
-                  notes.map((note) => (
-                    <div 
-                      key={note.id}
-                      className="relative p-4 rounded-xl transition-all duration-200 hover:scale-[1.02] cursor-pointer group"
-                      style={{
-                        background: `linear-gradient(135deg, ${getSenderColor(note.author)}15, ${getSenderColor(note.author)}08)`,
-                        border: `1px solid ${getSenderColor(note.author)}40`,
-                        boxShadow: `0 2px 8px ${getSenderColor(note.author)}20`
-                      }}
-                    >
-                      {/* Enhanced Sender Dot */}
-                      <div 
-                        className="absolute -top-2 -left-2 w-4 h-4 rounded-full border-2 border-gray-900 shadow-lg"
-                        style={{ 
-                          backgroundColor: getSenderColor(note.author),
-                          boxShadow: `0 0 8px ${getSenderColor(note.author)}60`
-                        }}
-                      />
-                      
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 pr-3">
-                          <p className="text-sm text-gray-100 leading-relaxed font-medium">{note.content}</p>
-                        </div>
-                        <div className="flex flex-col items-end space-y-1 text-right">
-                          <span className="text-xs font-bold" style={{ color: getSenderColor(note.author) }}>
-                            {getSenderName(note.author)}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {formatMessageTime(note.timestamp)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+      {/* Compact Main Content */}
+      <div className="flex-1 p-4 min-h-0">
+        <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left Column - Love Only */}
+          <div className="min-h-0">
+            <LoveComposite
+              loveSparksValue={todaysEntry.sexCount}
+              loveSparksGoal={METRIC_CONFIGS.find(c => c.key === 'sexCount')?.weeklyGoal || 2}
+              qualityTimeValue={todaysEntry.qualityTimeHours}
+              qualityTimeGoal={METRIC_CONFIGS.find(c => c.key === 'qualityTimeHours')?.weeklyGoal || 10}
+              onLoveSparksIncrement={() => handleMetricUpdate('sexCount', 1)}
+              onLoveSparksDecrement={() => handleMetricUpdate('sexCount', -1)}
+              onQualityTimeIncrement={() => handleMetricUpdate('qualityTimeHours', 1)}
+              onQualityTimeDecrement={() => handleMetricUpdate('qualityTimeHours', -1)}
+            />
           </div>
 
           {/* Center Column - Finances */}

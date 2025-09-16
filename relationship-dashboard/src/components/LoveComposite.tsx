@@ -96,21 +96,21 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
         </div>
       )}
 
-      {/* Simplified Header */}
-      <div className="text-center mb-4">
-        <h3 className="font-bold text-white text-lg mb-1">Love & Connection</h3>
-        <p className="text-sm text-gray-400">
+      {/* Compact Header */}
+      <div className="text-center mb-3">
+        <h3 className="font-bold text-white text-base mb-1">Love & Connection</h3>
+        <p className="text-xs text-gray-400">
           Weekly Progress
         </p>
       </div>
 
-      {/* Cute Progress Ring */}
-      <div className="relative mb-4 flex justify-center flex-1">
+      {/* Compact Progress Ring */}
+      <div className="relative mb-3 flex justify-center flex-1">
         <svg 
           className="transform -rotate-90 transition-all duration-500"
-          width={200} 
-          height={200}
-          viewBox="0 0 200 200"
+          width={160} 
+          height={160}
+          viewBox="0 0 160 160"
           style={{
             filter: completedGoals === 2 
               ? `drop-shadow(0 0 15px ${DARK_THEME.neon.pink}60)` 
@@ -131,8 +131,8 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
 
           {/* Background circle */}
           <circle
-            cx={100}
-            cy={100}
+            cx={80}
+            cy={80}
             r={normalizedRadius}
             stroke="url(#love-bg-gradient)"
             strokeWidth={strokeWidth}
@@ -142,8 +142,8 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
 
           {/* Progress arc */}
           <circle
-            cx={100}
-            cy={100}
+            cx={80}
+            cy={80}
             r={normalizedRadius}
             stroke="url(#love-progress-gradient)"
             strokeWidth={strokeWidth}
@@ -159,16 +159,16 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
           <RadialCenterIcon
             Icon={FavoriteBorder}
             color={DARK_THEME.neon.pink}
-            size={48}
+            size={36}
           />
         </svg>
       </div>
 
-      {/* Progress Numbers Below Ring */}
-      <div className="text-center mb-4">
-        <div className="flex items-center justify-center space-x-3 mb-3">
+      {/* Compact Progress Numbers */}
+      <div className="text-center mb-3">
+        <div className="flex items-center justify-center space-x-2 mb-2">
           <div className="text-center">
-            <div className="text-2xl font-bold">
+            <div className="text-xl font-bold">
               <span 
                 className="neon-text"
                 style={{ color: DARK_THEME.neon.pink }}
@@ -178,16 +178,16 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
             </div>
             <div className="text-xs text-gray-400">Done</div>
           </div>
-          <div className="text-gray-500 text-lg">/</div>
+          <div className="text-gray-500 text-sm">/</div>
           <div className="text-center">
-            <div className="text-xl font-bold text-white">
+            <div className="text-lg font-bold text-white">
               {loveMetrics.length}
             </div>
             <div className="text-xs text-gray-400">Total</div>
           </div>
-          <div className="text-gray-500 text-lg">=</div>
+          <div className="text-gray-500 text-sm">=</div>
           <div className="text-center">
-            <div className="text-2xl font-bold" style={{ color: DARK_THEME.neon.pink }}>
+            <div className="text-xl font-bold" style={{ color: DARK_THEME.neon.pink }}>
               {Math.round(totalProgress)}%
             </div>
             <div className="text-xs text-gray-400">Complete</div>
@@ -196,7 +196,7 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
       </div>
 
       {/* Compact Love Items */}
-      <div className="space-y-2 mb-4">
+      <div className="space-y-2 mb-3">
         {loveMetrics.map((metric, index) => {
           const Icon = metric.icon;
           const progress = metric.config.goalType === 'higher'
@@ -209,7 +209,7 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
           return (
             <div
               key={metric.config.key}
-              className="flex items-center justify-between px-3 py-3 rounded-xl bg-gray-800/50 border"
+              className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-800/50 border"
               style={isComplete ? {
                 background: `linear-gradient(135deg, ${metric.config.neonColor}15, transparent)`,
                 border: `1px solid ${metric.config.neonColor}40`,
@@ -220,24 +220,24 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
             >
               <div className="flex items-center space-x-3 flex-1">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  className="w-8 h-8 rounded-xl flex items-center justify-center"
                   style={{
                     background: `linear-gradient(135deg, ${metric.config.gradientFrom}, ${metric.config.gradientTo})`,
                     boxShadow: `0 4px 12px ${metric.config.neonColor}30`
                   }}
                 >
-                  <Icon sx={{ fontSize: 20, color: 'white' }} />
+                  <Icon sx={{ fontSize: 16, color: 'white' }} />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-white text-sm">{metric.label}</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-white text-xs">{metric.label}</span>
                     <span className="text-xs text-gray-300 font-bold">
                       {metric.value}/{metric.goal}{metric.config.unit || ''}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
                     <div
-                      className="h-2 rounded-full transition-all duration-700 ease-out"
+                      className="h-1.5 rounded-full transition-all duration-700 ease-out"
                       style={{
                         width: `${Math.min(progress, 100)}%`,
                         background: `linear-gradient(90deg, ${metric.config.gradientFrom}, ${metric.config.gradientTo})`,
@@ -248,29 +248,29 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 ml-4">
+              <div className="flex items-center space-x-1 ml-3">
                 <button
                   onClick={metric.onDecrement}
                   disabled={metric.value <= 0}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-110 active:scale-95"
+                  className="w-6 h-6 rounded-lg flex items-center justify-center text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-110 active:scale-95"
                   style={{
                     background: metric.value > 0
                       ? 'linear-gradient(135deg, #666 0%, #555 100%)'
                       : 'linear-gradient(135deg, #333 0%, #222 100%)'
                   }}
                 >
-                  <Remove sx={{ fontSize: 16 }} />
+                  <Remove sx={{ fontSize: 12 }} />
                 </button>
 
                 <button
                   onClick={metric.onIncrement}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white transition-all duration-200 hover:scale-110 active:scale-95"
+                  className="w-6 h-6 rounded-lg flex items-center justify-center text-white transition-all duration-200 hover:scale-110 active:scale-95"
                   style={{
                     background: `linear-gradient(135deg, ${metric.config.gradientFrom}, ${metric.config.gradientTo})`,
                     boxShadow: `0 4px 12px ${metric.config.neonColor}40`
                   }}
                 >
-                  <Add sx={{ fontSize: 16 }} />
+                  <Add sx={{ fontSize: 12 }} />
                 </button>
               </div>
             </div>
@@ -280,7 +280,7 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
 
       {/* Compact Encouragement */}
       <div
-        className="text-center text-xs px-2 py-1 rounded mb-2"
+        className="text-center text-xs px-2 py-1 rounded"
         style={{
           background: `linear-gradient(135deg, ${DARK_THEME.neon.pink}10, ${DARK_THEME.neon.purple}10)`,
           color: '#9ca3af'
