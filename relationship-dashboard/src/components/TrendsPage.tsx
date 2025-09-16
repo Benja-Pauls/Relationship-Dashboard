@@ -1,95 +1,274 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Timeline, Assessment, EmojiEvents } from '@mui/icons-material';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { Timeline, Assessment, EmojiEvents, TrendingUp, Favorite, LocalDining, Delete, Pets, AccountBalance, Schedule, Star } from '@mui/icons-material';
 import { DataService } from '../services/dataService';
-import { MonthlyMetrics, METRIC_CONFIGS, DARK_THEME } from '../types/metrics';
+import { MetricEntry, METRIC_CONFIGS, DARK_THEME, PartnerFinances } from '../types/metrics';
 
-interface ChartData {
-  date: string;
-  sexCount: number;
-  dishesDone: number;
-  trashFullHours: number;
-  kittyDuties: number;
-  formattedDate: string;
+interface AnalyticsData {
+  relationshipScore: number;
+  currentStreak: number;
+  longestStreak: number;
+  weeklyProgress: {
+    week: string;
+    loveScore: number;
+    choreScore: number;
+    overallScore: number;
+  }[];
+  goalAchievement: {
+    metric: string;
+    achieved: number;
+    total: number;
+    percentage: number;
+    color: string;
+  }[];
+  trendData: {
+    date: string;
+    love: number;
+    chores: number;
+    overall: number;
+    formattedDate: string;
+  }[];
+  insights: string[];
 }
 
 const TrendsPage: React.FC = () => {
-  const [chartData, setChartData] = useState<ChartData[]>([]);
-  const [monthlyData, setMonthlyData] = useState<MonthlyMetrics[]>([]);
-  const [selectedMetric, setSelectedMetric] = useState<string>('sexCount');
-  const [timeRange, setTimeRange] = useState<number>(30); // days
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [timeRange, setTimeRange] = useState<number>(30);
+  const [partnerFinances, setPartnerFinances] = useState<PartnerFinances | null>(null);
 
   useEffect(() => {
-    loadTrendsData();
-  }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadAnalyticsData();
+    loadFinanceData();
+  }, [timeRange]);
 
-  const loadTrendsData = () => {
+  const loadFinanceData = async () => {
+    try {
+      const finances = await DataService.getPartnerFinances();
+      setPartnerFinances(finances);
+    } catch (error) {
+      console.error('Failed to load finance data for analytics:', error);
+    }
+  };
+
+  const loadAnalyticsData = () => {
     const entries = DataService.getLastNMonthsEntries(3);
+    const recentEntries = entries.slice(-timeRange);
     
-    // Prepare daily chart data
-    const processedData: ChartData[] = entries.map(entry => ({
-      ...entry,
+    // Calculate relationship health score (0-100)
+    const relationshipScore = calculateRelationshipScore(recentEntries);
+    
+    // Calculate streaks
+    const { currentStreak, longestStreak } = calculateStreaks(entries);
+    
+    // Weekly progress comparison
+    const weeklyProgress = calculateWeeklyProgress(entries);
+    
+    // Goal achievement rates
+    const goalAchievement = calculateGoalAchievement(recentEntries);
+    
+    // Trend data for charts
+    const trendData = recentEntries.map(entry => ({
+      date: entry.date,
+      love: (entry.sexCount * 50) + (entry.qualityTimeHours * 10), // Love score
+      chores: (entry.dishesDone * 25) + (entry.kittyDuties * 20) + Math.max(0, 50 - (entry.trashFullHours * 10)), // Chore score
+      overall: 0, // Will be calculated
       formattedDate: new Date(entry.date).toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric' 
       })
     }));
+    
+    // Calculate overall scores
+    trendData.forEach(day => {
+      day.overall = Math.round((day.love + day.chores) / 2);
+    });
+    
+    // Generate insights
+    const insights = generateInsights(recentEntries, relationshipScore);
+    
+    setAnalyticsData({
+      relationshipScore,
+      currentStreak,
+      longestStreak,
+      weeklyProgress,
+      goalAchievement,
+      trendData,
+      insights
+    });
+  };
 
-    // Filter by time range
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - timeRange);
-    const filteredData = processedData.filter(entry => 
-      new Date(entry.date) >= cutoffDate
-    ).slice(-timeRange);
+  const calculateRelationshipScore = (entries: MetricEntry[]): number => {
+    if (entries.length === 0) return 0;
+    
+    const avgLove = entries.reduce((sum, e) => sum + e.sexCount, 0) / entries.length;
+    const avgQualityTime = entries.reduce((sum, e) => sum + e.qualityTimeHours, 0) / entries.length;
+    const avgDishes = entries.reduce((sum, e) => sum + e.dishesDone, 0) / entries.length;
+    const avgKitty = entries.reduce((sum, e) => sum + e.kittyDuties, 0) / entries.length;
+    const avgTrash = entries.reduce((sum, e) => sum + e.trashFullHours, 0) / entries.length;
+    
+    // Weight different metrics
+    const loveScore = Math.min(100, (avgLove / 2) * 100); // Target 2/week
+    const qualityTimeScore = Math.min(100, (avgQualityTime / 10) * 100); // Target 10h/week
+    const choresScore = Math.min(100, (avgDishes / 0.85) * 100); // Target 85% adherence
+    const kittyScore = Math.min(100, (avgKitty / 1) * 100); // Target daily
+    const trashScore = Math.max(0, 100 - (avgTrash * 50)); // Lower is better
+    
+    return Math.round((loveScore * 0.3) + (qualityTimeScore * 0.25) + (choresScore * 0.2) + (kittyScore * 0.15) + (trashScore * 0.1));
+  };
 
-    setChartData(filteredData);
-
-    // Calculate monthly aggregates for the last 3 months
-    const monthlyAggregates: MonthlyMetrics[] = [];
-    for (let i = 2; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const calculateStreaks = (entries: MetricEntry[]) => {
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 0;
+    
+    // Sort entries by date
+    const sortedEntries = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    for (let i = 0; i < sortedEntries.length; i++) {
+      const entry = sortedEntries[i];
+      const hasGoodDay = entry.sexCount > 0 || entry.qualityTimeHours >= 2 || entry.dishesDone > 0;
       
-      const monthEntries = entries.filter(entry => entry.date.startsWith(monthStr));
-      
-      if (monthEntries.length > 0) {
-        const monthlyMetric: MonthlyMetrics = {
-          month: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          totalSexCount: monthEntries.reduce((sum, entry) => sum + entry.sexCount, 0),
-          totalDishesDone: monthEntries.reduce((sum, entry) => sum + entry.dishesDone, 0),
-          averageTrashFullHours: monthEntries.reduce((sum, entry) => sum + entry.trashFullHours, 0) / monthEntries.length,
-          totalKittyDuties: monthEntries.reduce((sum, entry) => sum + entry.kittyDuties, 0),
-          averageBalance: 0,
-          dishesAdherencePercent: (monthEntries.filter(entry => entry.dishesDone > 0).length / monthEntries.length) * 100
-        };
-        monthlyAggregates.push(monthlyMetric);
+      if (hasGoodDay) {
+        tempStreak++;
+        longestStreak = Math.max(longestStreak, tempStreak);
+        
+        // If this is recent, count towards current streak
+        const daysDiff = Math.floor((new Date().getTime() - new Date(entry.date).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff <= 7) currentStreak = tempStreak;
+      } else {
+        tempStreak = 0;
       }
     }
-
-    setMonthlyData(monthlyAggregates);
+    
+    return { currentStreak, longestStreak };
   };
 
-  const getMetricConfig = (key: string) => {
-    return METRIC_CONFIGS.find(config => config.key === key) || METRIC_CONFIGS[0];
+  const calculateWeeklyProgress = (entries: MetricEntry[]) => {
+    const weeks: { [key: string]: MetricEntry[] } = {};
+    
+    entries.forEach(entry => {
+      const date = new Date(entry.date);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!weeks[weekKey]) weeks[weekKey] = [];
+      weeks[weekKey].push(entry);
+    });
+    
+    return Object.entries(weeks).slice(-8).map(([weekStart, weekEntries]) => {
+      const loveScore = Math.min(100, (weekEntries.reduce((sum, e) => sum + e.sexCount, 0) / 2) * 100);
+      const choreScore = Math.min(100, ((weekEntries.filter(e => e.dishesDone > 0).length / 7) * 100));
+      
+      return {
+        week: new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        loveScore: Math.round(loveScore),
+        choreScore: Math.round(choreScore),
+        overallScore: Math.round((loveScore + choreScore) / 2)
+      };
+    });
   };
 
-  const getChartColor = (metric: string) => {
-    const config = getMetricConfig(metric);
-    return config.neonColor;
+  const calculateGoalAchievement = (entries: MetricEntry[]) => {
+    const achievements = METRIC_CONFIGS.map(config => {
+      let achieved = 0;
+      let total = entries.length;
+      
+      entries.forEach(entry => {
+        const value = entry[config.key];
+        const weeklyTarget = config.weeklyGoal / 7; // Daily target
+        
+        if (config.goalType === 'higher' && value >= weeklyTarget) achieved++;
+        else if (config.goalType === 'lower' && value <= weeklyTarget) achieved++;
+      });
+      
+      return {
+        metric: config.friendlyLabel,
+        achieved,
+        total,
+        percentage: total > 0 ? Math.round((achieved / total) * 100) : 0,
+        color: config.neonColor
+      };
+    });
+    
+    return achievements;
   };
+
+  const generateInsights = (entries: MetricEntry[], score: number): string[] => {
+    const insights: string[] = [];
+    
+    if (score >= 85) {
+      insights.push("🎉 Outstanding relationship health! You're both crushing your goals.");
+    } else if (score >= 70) {
+      insights.push("💪 Great progress! Small improvements could make a big difference.");
+    } else if (score >= 50) {
+      insights.push("📈 Room for growth. Focus on consistency in daily habits.");
+    } else {
+      insights.push("🎯 Let's get back on track! Start with small, achievable daily goals.");
+    }
+    
+    // Love insights
+    const avgLove = entries.reduce((sum, e) => sum + e.sexCount, 0) / entries.length;
+    if (avgLove < 1) {
+      insights.push("💕 Consider scheduling more intimate time together.");
+    }
+    
+    // Quality time insights
+    const avgQualityTime = entries.reduce((sum, e) => sum + e.qualityTimeHours, 0) / entries.length;
+    if (avgQualityTime < 8) {
+      insights.push("⏰ Try to increase quality time - aim for 1-2 hours daily.");
+    }
+    
+    // Chore insights
+    const dishesAdherence = (entries.filter(e => e.dishesDone > 0).length / entries.length) * 100;
+    if (dishesAdherence < 70) {
+      insights.push("🍽️ Dishes routine needs attention - consistency is key!");
+    }
+    
+    return insights.slice(0, 4); // Limit to 4 insights
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return DARK_THEME.neon.green;
+    if (score >= 70) return DARK_THEME.neon.cyan;
+    if (score >= 50) return DARK_THEME.neon.yellow;
+    return DARK_THEME.neon.pink;
+  };
+
+  const getScoreGrade = (score: number) => {
+    if (score >= 90) return 'A+';
+    if (score >= 85) return 'A';
+    if (score >= 80) return 'A-';
+    if (score >= 75) return 'B+';
+    if (score >= 70) return 'B';
+    if (score >= 65) return 'B-';
+    if (score >= 60) return 'C+';
+    if (score >= 55) return 'C';
+    return 'C-';
+  };
+
+  if (!analyticsData) {
+    return (
+      <div className="h-full bg-black text-white p-6 flex items-center justify-center">
+        <div className="text-center">
+          <Assessment sx={{ fontSize: 64, color: DARK_THEME.neon.cyan, marginBottom: 2 }} />
+          <p className="text-gray-400">Loading analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-black text-white p-6 overflow-hidden flex flex-col">
       <div className="flex-1 overflow-auto">
-        {/* Compact Header */}
+        {/* Header */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div 
               className="p-2 rounded-xl"
               style={{
-                background: `linear-gradient(135deg, ${DARK_THEME.neon.green}, ${DARK_THEME.neon.cyan})`,
-                boxShadow: `0 0 20px ${DARK_THEME.neon.green}40`
+                background: `linear-gradient(135deg, ${getScoreColor(analyticsData.relationshipScore)}, ${getScoreColor(analyticsData.relationshipScore)}80)`,
+                boxShadow: `0 0 20px ${getScoreColor(analyticsData.relationshipScore)}40`
               }}
             >
               <Assessment sx={{ fontSize: 28, color: 'white' }} />
@@ -99,155 +278,166 @@ const TrendsPage: React.FC = () => {
                 <span 
                   className="bg-gradient-to-r from-green-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent"
                 >
-                  Analytics Dashboard
+                  Relationship Analytics
                 </span>
               </h1>
-              <p className="text-sm text-gray-300">Track your relationship trends</p>
+              <p className="text-sm text-gray-300">Data-driven insights for your partnership</p>
             </div>
           </div>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="mb-8 flex justify-center">
-          <div className="dark-card rounded-2xl p-2">
-            {[7, 14, 30, 90].map(days => (
-              <button
-                key={days}
-                onClick={() => setTimeRange(days)}
-                className={`px-6 py-3 rounded-xl mr-2 last:mr-0 transition-all duration-300 font-medium ${
-                  timeRange === days 
-                    ? 'text-white' 
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-                style={timeRange === days ? {
-                  background: `linear-gradient(135deg, ${DARK_THEME.neon.green}, ${DARK_THEME.neon.cyan})`,
-                  boxShadow: `0 0 20px ${DARK_THEME.neon.green}40`
-                } : {}}
-              >
-                {days} days
-              </button>
-            ))}
+        {/* Key Metrics Row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          {/* Relationship Score */}
+          <div className="radial-wheel-dark p-6 text-center">
+            <div 
+              className="text-4xl font-bold mb-2"
+              style={{ color: getScoreColor(analyticsData.relationshipScore) }}
+            >
+              {analyticsData.relationshipScore}
+            </div>
+            <div className="text-sm text-gray-400 mb-1">Health Score</div>
+            <div 
+              className="text-lg font-bold"
+              style={{ color: getScoreColor(analyticsData.relationshipScore) }}
+            >
+              {getScoreGrade(analyticsData.relationshipScore)}
+            </div>
+          </div>
+
+          {/* Current Streak */}
+          <div className="radial-wheel-dark p-6 text-center">
+            <div className="text-4xl font-bold mb-2" style={{ color: DARK_THEME.neon.orange }}>
+              {analyticsData.currentStreak}
+            </div>
+            <div className="text-sm text-gray-400 mb-1">Current Streak</div>
+            <div className="text-xs text-gray-500">days</div>
+          </div>
+
+          {/* Best Streak */}
+          <div className="radial-wheel-dark p-6 text-center">
+            <div className="text-4xl font-bold mb-2" style={{ color: DARK_THEME.neon.purple }}>
+              {analyticsData.longestStreak}
+            </div>
+            <div className="text-sm text-gray-400 mb-1">Best Streak</div>
+            <div className="text-xs text-gray-500">days</div>
+          </div>
+
+          {/* Financial Impact */}
+          <div className="radial-wheel-dark p-6 text-center">
+            <div className="text-4xl font-bold mb-2" style={{ color: DARK_THEME.neon.green }}>
+              {partnerFinances ? `$${Math.round((partnerFinances.sydneyBalance + partnerFinances.benBalance + partnerFinances.investmentsBalance) / 1000)}K` : '---'}
+            </div>
+            <div className="text-sm text-gray-400 mb-1">Net Worth</div>
+            <div className="text-xs text-gray-500">combined</div>
           </div>
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
-          {/* Main Trend Chart */}
-          <div className="xl:col-span-2 dark-card rounded-3xl p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <Timeline sx={{ fontSize: 32, color: DARK_THEME.neon.cyan }} />
-                <h2 className="text-2xl font-bold">Daily Trends</h2>
-              </div>
-              <select
-                value={selectedMetric}
-                onChange={(e) => setSelectedMetric(e.target.value)}
-                className="px-4 py-2 bg-gray-800 border border-gray-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                {METRIC_CONFIGS.map(config => (
-                  <option key={config.key} value={config.key}>
-                    {config.friendlyLabel}
-                  </option>
-                ))}
-              </select>
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+          {/* Relationship Trend */}
+          <div className="radial-wheel-dark p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <TrendingUp sx={{ fontSize: 24, color: DARK_THEME.neon.cyan }} />
+              <h3 className="text-xl font-bold">Relationship Trend</h3>
             </div>
-            
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={chartData}>
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={analyticsData.trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis 
-                  dataKey="formattedDate"
-                  stroke="#9ca3af"
-                  fontSize={12}
-                  tickLine={false}
-                />
-                <YAxis 
-                  stroke="#9ca3af"
-                  fontSize={12}
-                  tickLine={false}
-                />
+                <XAxis dataKey="formattedDate" stroke="#9ca3af" fontSize={12} />
+                <YAxis stroke="#9ca3af" fontSize={12} />
                 <Tooltip 
                   contentStyle={{
                     backgroundColor: '#1a1a1a',
                     border: '1px solid #333',
                     borderRadius: '12px',
-                    fontSize: '14px',
                     color: 'white'
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey={selectedMetric}
-                  stroke={getChartColor(selectedMetric)}
-                  strokeWidth={3}
-                  dot={{ fill: getChartColor(selectedMetric), strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8, fill: getChartColor(selectedMetric) }}
-                />
-              </LineChart>
+                <Area type="monotone" dataKey="overall" stroke={DARK_THEME.neon.cyan} fill={`${DARK_THEME.neon.cyan}20`} strokeWidth={2} />
+                <Area type="monotone" dataKey="love" stroke={DARK_THEME.neon.pink} fill={`${DARK_THEME.neon.pink}10`} strokeWidth={2} />
+                <Area type="monotone" dataKey="chores" stroke={DARK_THEME.neon.green} fill={`${DARK_THEME.neon.green}10`} strokeWidth={2} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Quick Stats */}
-          <div className="space-y-6">
-            <div className="dark-card rounded-3xl p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <EmojiEvents sx={{ fontSize: 24, color: DARK_THEME.neon.yellow }} />
-                <h3 className="font-bold text-lg">Performance</h3>
-              </div>
-              <div className="text-center">
-                <div 
-                  className="text-4xl font-bold mb-2 neon-text"
-                  style={{ color: DARK_THEME.neon.yellow }}
-                >
-                  A+
-                </div>
-                <p className="text-gray-400 text-sm">Overall Grade</p>
-              </div>
+          {/* Goal Achievement */}
+          <div className="radial-wheel-dark p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <EmojiEvents sx={{ fontSize: 24, color: DARK_THEME.neon.yellow }} />
+              <h3 className="text-xl font-bold">Goal Achievement</h3>
             </div>
-
-            <div className="dark-card rounded-3xl p-6">
-              <h3 className="font-bold text-lg mb-4 text-center">Coming Soon</h3>
-              <p className="text-gray-400 text-sm text-center">
-                Advanced analytics, streak tracking, and predictive insights are being developed.
-              </p>
+            <div className="space-y-3">
+              {analyticsData.goalAchievement.map(goal => (
+                <div key={goal.metric} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium">{goal.metric}</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-24 bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${goal.percentage}%`,
+                          backgroundColor: goal.color
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold" style={{ color: goal.color }}>
+                      {goal.percentage}%
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Monthly Comparison */}
-        <div className="dark-card rounded-3xl p-8">
-          <div className="flex items-center space-x-3 mb-6">
-            <Assessment sx={{ fontSize: 32, color: DARK_THEME.neon.purple }} />
-            <h2 className="text-2xl font-bold">Monthly Comparison</h2>
+        {/* Weekly Progress */}
+        <div className="radial-wheel-dark p-6 mb-8">
+          <div className="flex items-center space-x-3 mb-4">
+            <Timeline sx={{ fontSize: 24, color: DARK_THEME.neon.purple }} />
+            <h3 className="text-xl font-bold">Weekly Progress</h3>
           </div>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={monthlyData}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={analyticsData.weeklyProgress}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis 
-                dataKey="month"
-                stroke="#9ca3af"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis 
-                stroke="#9ca3af"
-                fontSize={12}
-                tickLine={false}
-              />
+              <XAxis dataKey="week" stroke="#9ca3af" fontSize={12} />
+              <YAxis stroke="#9ca3af" fontSize={12} />
               <Tooltip 
                 contentStyle={{
                   backgroundColor: '#1a1a1a',
                   border: '1px solid #333',
                   borderRadius: '12px',
-                  fontSize: '14px',
                   color: 'white'
                 }}
               />
-              <Bar dataKey="totalSexCount" fill={DARK_THEME.neon.pink} name="Love Sparks" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="totalDishesDone" fill={DARK_THEME.neon.cyan} name="Dishes Done" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="totalKittyDuties" fill={DARK_THEME.neon.purple} name="Kitty Care" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="loveScore" fill={DARK_THEME.neon.pink} name="Love Score" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="choreScore" fill={DARK_THEME.neon.cyan} name="Chore Score" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+
+        {/* Insights */}
+        <div className="radial-wheel-dark p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <Star sx={{ fontSize: 24, color: DARK_THEME.neon.yellow }} />
+            <h3 className="text-xl font-bold">AI Insights</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {analyticsData.insights.map((insight, index) => (
+              <div 
+                key={index}
+                className="p-4 rounded-xl border"
+                style={{
+                  background: `linear-gradient(135deg, ${DARK_THEME.neon.yellow}10, transparent)`,
+                  borderColor: `${DARK_THEME.neon.yellow}30`
+                }}
+              >
+                <p className="text-gray-200 text-sm">{insight}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

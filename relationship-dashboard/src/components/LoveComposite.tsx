@@ -209,35 +209,39 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
           return (
             <div
               key={metric.config.key}
-              className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-800/50"
+              className="flex items-center justify-between px-3 py-3 rounded-xl bg-gray-800/50 border"
               style={isComplete ? {
                 background: `linear-gradient(135deg, ${metric.config.neonColor}15, transparent)`,
-                border: `1px solid ${metric.config.neonColor}40`
-              } : {}}
+                border: `1px solid ${metric.config.neonColor}40`,
+                boxShadow: `0 2px 8px ${metric.config.neonColor}20`
+              } : {
+                border: '1px solid rgba(75, 85, 99, 0.3)'
+              }}
             >
               <div className="flex items-center space-x-3 flex-1">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{
                     background: `linear-gradient(135deg, ${metric.config.gradientFrom}, ${metric.config.gradientTo})`,
+                    boxShadow: `0 4px 12px ${metric.config.neonColor}30`
                   }}
                 >
                   <Icon sx={{ fontSize: 20, color: 'white' }} />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-white text-sm">{metric.label}</span>
-                    <span className="text-xs text-gray-300 font-medium">
+                    <span className="text-xs text-gray-300 font-bold">
                       {metric.value}/{metric.goal}{metric.config.unit || ''}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-1.5">
+                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                     <div
-                      className="h-1.5 rounded-full transition-all duration-500"
+                      className="h-2 rounded-full transition-all duration-700 ease-out"
                       style={{
                         width: `${Math.min(progress, 100)}%`,
                         background: `linear-gradient(90deg, ${metric.config.gradientFrom}, ${metric.config.gradientTo})`,
-                        boxShadow: progress > 0 ? `0 0 8px ${metric.config.neonColor}60` : 'none'
+                        boxShadow: progress > 0 ? `0 0 12px ${metric.config.neonColor}60` : 'none'
                       }}
                     />
                   </div>

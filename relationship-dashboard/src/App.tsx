@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Home, TrendingUp, Message, Speed } from '@mui/icons-material';
+import { Home, TrendingUp } from '@mui/icons-material';
 import Dashboard from './components/Dashboard';
 import TrendsPage from './components/TrendsPage';
-import NotesPage from './components/NotesPage';
 import { DARK_THEME } from './types/metrics';
 import './index.css';
 
-type Page = 'home' | 'trends' | 'notes';
+type Page = 'home' | 'trends';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -15,8 +14,6 @@ const App: React.FC = () => {
     switch (currentPage) {
       case 'trends':
         return <TrendsPage />;
-      case 'notes':
-        return <NotesPage />;
       default:
         return <Dashboard />;
     }
@@ -24,8 +21,7 @@ const App: React.FC = () => {
 
   const navItems = [
     { id: 'home', label: 'Dashboard', icon: Home, color: DARK_THEME.neon.cyan },
-    { id: 'trends', label: 'Analytics', icon: TrendingUp, color: DARK_THEME.neon.green },
-    { id: 'notes', label: 'Messages', icon: Message, color: DARK_THEME.neon.purple }
+    { id: 'trends', label: 'Analytics', icon: TrendingUp, color: DARK_THEME.neon.green }
   ];
 
   return (
@@ -71,9 +67,8 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-2">
-              <Speed sx={{ fontSize: 14, color: DARK_THEME.neon.green }} />
               <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-xs text-gray-400">Online</span>
+              <span className="text-xs text-gray-400">Live Updates</span>
             </div>
           </div>
         </div>
