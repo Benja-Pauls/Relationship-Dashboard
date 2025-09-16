@@ -159,7 +159,7 @@ const LoveComposite: React.FC<LoveCompositeProps> = ({
           <RadialCenterIcon
             Icon={FavoriteBorder}
             color={DARK_THEME.neon.pink}
-            size={36}
+            size={72}
           />
         </svg>
       </div>

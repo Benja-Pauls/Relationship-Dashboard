@@ -225,7 +225,7 @@ const DualFinanceWheel: React.FC<DualFinanceWheelProps> = ({
           <RadialCenterIcon
             Icon={AccountBalance}
             color="#10b981"
-            size={36}
+            size={72}
           />
         </svg>
       </div>

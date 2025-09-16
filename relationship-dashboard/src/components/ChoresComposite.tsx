@@ -178,7 +178,7 @@ const ChoresComposite: React.FC<ChoresCompositeProps> = ({
           <RadialCenterIcon
             Icon={Home}
             color={DARK_THEME.neon.green}
-            size={36}
+            size={72}
           />
         </svg>
       </div>
