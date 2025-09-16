@@ -12,13 +12,13 @@ interface RadialCenterIconProps {
 const RadialCenterIcon: React.FC<RadialCenterIconProps> = ({
   Icon,
   color,
-  size = 48 // Increased default size
+  size = 200 // Increased default size
 }) => {
   // Perfect centering for 200x200 SVG with slight adjustment
   const iconSize = size;
   const centerOffset = iconSize / 2;
-  const x = 75 - centerOffset; // Center in 200x200 SVG (75,70 is center)
-  const y = 70 - centerOffset + 4; // Slight downward adjustment for visual centering
+  const x = 69 - centerOffset; // Center in 200x200 SVG (75,70 is center)
+  const y = 69 - centerOffset; // Slight downward adjustment for visual centering
 
   return (
     <foreignObject 
