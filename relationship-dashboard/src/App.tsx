@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Home, TrendingUp } from '@mui/icons-material';
 import Dashboard from './components/Dashboard';
-import TrendsPage from './components/TrendsPage';
+import SpendingPage from './components/SpendingPage';
 import { DARK_THEME } from './types/metrics';
 import './index.css';
 
@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'trends':
-        return <TrendsPage />;
+        return <SpendingPage />;
       default:
         return <Dashboard />;
     }
@@ -21,7 +21,7 @@ const App: React.FC = () => {
 
   const navItems = [
     { id: 'home', label: 'Dashboard', icon: Home, color: DARK_THEME.neon.cyan },
-    { id: 'trends', label: 'Analytics', icon: TrendingUp, color: DARK_THEME.neon.green }
+    { id: 'trends', label: 'Spending', icon: TrendingUp, color: DARK_THEME.neon.green }
   ];
 
   return (

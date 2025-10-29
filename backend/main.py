@@ -101,6 +101,13 @@ class WeeklyMetrics(BaseModel):
     trashTargetHours: int = 0
     kittyDuties: int = 0
 
+class SpendingTransaction(BaseModel):
+    amount: float
+    tag: str  # 'groceries', 'eating out', 'fun', 'clothes'
+    person: str  # 'ben' or 'sydney'
+    date: Optional[str] = None
+    id: Optional[str] = None
+
 # Data storage functions
 def load_data_file(filename: str, default_data: dict = None) -> dict:
     """Load data from JSON file"""
@@ -251,6 +258,9 @@ def initialize_data():
     
     # Initialize analytics data
     load_data_file('analytics_data.json', {'weekly_history': []})
+    
+    # Initialize spending data
+    load_data_file('spending.json', {'transactions': []})
 
 # Initialize on startup
 initialize_data()
@@ -411,6 +421,112 @@ async def delete_message(message_id: str):
     save_data_file('messages.json', messages_data)
     
     return {"message": "Message deleted"}
+
+# Spending tracking endpoints
+@app.get("/api/spending/transactions")
+async def get_spending_transactions(month: Optional[str] = None):
+    """Get all spending transactions, optionally filtered by month"""
+    spending_data = load_data_file('spending.json', {'transactions': []})
+    transactions = spending_data.get('transactions', [])
+    
+    # If month filter is provided (format: YYYY-MM), filter transactions
+    if month:
+        transactions = [t for t in transactions if t.get('date', '').startswith(month)]
+    
+    # Sort by date, newest first
+    transactions.sort(key=lambda x: x.get('date', ''), reverse=True)
+    
+    return {'transactions': transactions}
+
+@app.post("/api/spending/transactions")
+async def create_spending_transaction(transaction: SpendingTransaction):
+    """Create a new spending transaction"""
+    spending_data = load_data_file('spending.json', {'transactions': []})
+    
+    # Generate ID and date if not provided
+    new_transaction = {
+        'id': str(len(spending_data['transactions']) + int(datetime.now().timestamp())),
+        'amount': transaction.amount,
+        'tag': transaction.tag,
+        'person': transaction.person,
+        'date': transaction.date or datetime.now(CST).isoformat()
+    }
+    
+    spending_data['transactions'].append(new_transaction)
+    save_data_file('spending.json', spending_data)
+    
+    return new_transaction
+
+@app.put("/api/spending/transactions/{transaction_id}")
+async def update_spending_transaction(transaction_id: str, updates: dict):
+    """Update a spending transaction"""
+    spending_data = load_data_file('spending.json', {'transactions': []})
+    
+    for transaction in spending_data['transactions']:
+        if transaction['id'] == transaction_id:
+            transaction.update(updates)
+            save_data_file('spending.json', spending_data)
+            return transaction
+    
+    raise HTTPException(status_code=404, detail="Transaction not found")
+
+@app.delete("/api/spending/transactions/{transaction_id}")
+async def delete_spending_transaction(transaction_id: str):
+    """Delete a spending transaction"""
+    spending_data = load_data_file('spending.json', {'transactions': []})
+    
+    spending_data['transactions'] = [
+        t for t in spending_data['transactions'] if t['id'] != transaction_id
+    ]
+    save_data_file('spending.json', spending_data)
+    
+    return {"message": "Transaction deleted"}
+
+@app.get("/api/spending/stats")
+async def get_spending_stats():
+    """Get spending statistics aggregated by tag and person"""
+    spending_data = load_data_file('spending.json', {'transactions': []})
+    transactions = spending_data.get('transactions', [])
+    
+    # Group by month
+    monthly_stats = {}
+    
+    for transaction in transactions:
+        date_str = transaction.get('date', '')
+        if not date_str:
+            continue
+        
+        # Extract month (YYYY-MM)
+        month = date_str[:7] if len(date_str) >= 7 else datetime.now(CST).strftime('%Y-%m')
+        
+        if month not in monthly_stats:
+            monthly_stats[month] = {
+                'total_by_tag': {'necessities': 0, 'eating out': 0, 'fun': 0, 'clothes': 0},
+                'total_by_person': {'ben': 0, 'sydney': 0},
+                'transaction_count': 0
+            }
+        
+        stats = monthly_stats[month]
+        tag = transaction.get('tag', '')
+        person = transaction.get('person', '')
+        amount = transaction.get('amount', 0)
+        
+        if tag in stats['total_by_tag']:
+            stats['total_by_tag'][tag] += amount
+        
+        if person in stats['total_by_person']:
+            stats['total_by_person'][person] += amount
+        
+        stats['transaction_count'] += 1
+    
+    # Calculate averages
+    for month, stats in monthly_stats.items():
+        stats['avg_by_tag'] = {
+            tag: stats['total_by_tag'][tag] / max(1, stats['transaction_count']) 
+            for tag in ['necessities', 'eating out', 'fun', 'clothes']
+        }
+    
+    return {'monthly_stats': monthly_stats}
 
 # Existing Plaid endpoints (unchanged)
 @app.get("/connect", response_class=HTMLResponse)

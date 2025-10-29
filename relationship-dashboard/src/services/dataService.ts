@@ -240,4 +240,95 @@ export class DataService {
     // Deprecated - use backend APIs instead
     console.warn('saveNotes is deprecated - use backend message APIs');
   }
+
+  // Spending tracking
+  static async getSpendingTransactions(month?: string): Promise<any[]> {
+    try {
+      const url = month ? `${API_BASE_URL}/spending/transactions?month=${month}` : `${API_BASE_URL}/spending/transactions`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.transactions || [];
+    } catch (error) {
+      console.error('Error fetching spending transactions:', error);
+      return [];
+    }
+  }
+
+  static async createSpendingTransaction(transaction: {
+    amount: number;
+    tag: string;
+    person: string;
+    date?: string;
+  }): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/spending/transactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transaction),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating spending transaction:', error);
+      throw error;
+    }
+  }
+
+  static async updateSpendingTransaction(transactionId: string, updates: any): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/spending/transactions/${transactionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating spending transaction:', error);
+      throw error;
+    }
+  }
+
+  static async deleteSpendingTransaction(transactionId: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/spending/transactions/${transactionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error deleting spending transaction:', error);
+      throw error;
+    }
+  }
+
+  static async getSpendingStats(): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/spending/stats`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching spending stats:', error);
+      return { monthly_stats: {} };
+    }
+  }
 } 

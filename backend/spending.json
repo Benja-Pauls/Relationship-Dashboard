@@ -1,0 +1,18 @@
+{
+  "transactions": [
+    {
+      "id": "1761533735",
+      "amount": 10.0,
+      "tag": "necessities",
+      "person": "ben",
+      "date": "2025-10-26T21:55:35.291564-05:00"
+    },
+    {
+      "id": "1761533860",
+      "amount": 12.0,
+      "tag": "necessities",
+      "person": "ben",
+      "date": "2025-10-26T21:57:39.425128-05:00"
+    }
+  ]
+}
