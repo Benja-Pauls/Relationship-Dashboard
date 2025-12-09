@@ -1,0 +1,28 @@
+version: 1.0
+runtime: python3
+build:
+  commands:
+    build:
+      - echo "Build stage - installing dependencies"
+run:
+  runtime-version: 3.11
+  pre-run:
+    - pip3 install --upgrade pip
+    - pip3 install -r requirements.txt
+    - pip3 install uvicorn[standard]
+    - echo "✅ Dependencies installed"
+  command: python3 -m uvicorn main:app --host=0.0.0.0 --port=8000
+  network:
+    port: 8000
+    env: PORT
+  env:
+    - name: PORT
+      value: "8000"
+    - name: HOST
+      value: "0.0.0.0"
+    - name: PYTHONPATH
+      value: "/app"
+    - name: ENVIRONMENT
+      value: "production"
+
+

@@ -30,9 +30,12 @@ from plaid.model.products import Products
 app = FastAPI(title="Relationship Dashboard API")
 
 # CORS setup for React frontend
+# For production, add your Amplify domain after deployment
+CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:3002').split(',')
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],  # React dev server on multiple ports
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

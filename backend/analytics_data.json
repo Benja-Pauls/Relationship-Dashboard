@@ -47,6 +47,54 @@
         "trashTargetHours": 0,
         "kittyDuties": 0
       }
+    },
+    {
+      "week_start": "2025-10-20",
+      "daily_entries": {
+        "2025-10-26": {
+          "date": "2025-10-26",
+          "sexCount": 0,
+          "qualityTimeHours": 0,
+          "dishesDone": 0,
+          "trashFullHours": 0,
+          "kittyDuties": 0
+        }
+      },
+      "weekly_totals": {
+        "sexCount": 0,
+        "qualityTimeHours": 0,
+        "dishesDone": 0,
+        "trashTargetHours": 0,
+        "kittyDuties": 0
+      }
+    },
+    {
+      "week_start": "2025-10-20",
+      "daily_entries": {
+        "2025-10-26": {
+          "date": "2025-10-26",
+          "sexCount": 0,
+          "qualityTimeHours": 0,
+          "dishesDone": 0,
+          "trashFullHours": 0,
+          "kittyDuties": 0
+        },
+        "2025-10-29": {
+          "date": "2025-10-29",
+          "sexCount": 0,
+          "qualityTimeHours": 0,
+          "dishesDone": 0,
+          "trashFullHours": 0,
+          "kittyDuties": 0
+        }
+      },
+      "weekly_totals": {
+        "sexCount": 0,
+        "qualityTimeHours": 0,
+        "dishesDone": 0,
+        "trashTargetHours": 0,
+        "kittyDuties": 0
+      }
     }
   ]
 }

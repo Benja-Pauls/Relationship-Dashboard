@@ -1,1 +1,17 @@
 .env
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+node_modules/
+build/
+dist/
+*.egg-info/
+.DS_Store
+.vscode/
+.idea/
+
+# Keep data files local only - they'll be created on the server
+backend/data/*.json
+!backend/data/.gitkeep

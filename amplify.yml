@@ -1,0 +1,19 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - cd relationship-dashboard
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: relationship-dashboard/build
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - relationship-dashboard/node_modules/**/*
+
+
